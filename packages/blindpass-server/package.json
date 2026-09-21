@@ -1,0 +1,10 @@
+{
+  "name": "@blindpass/server",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": "./src/index.ts",
+  "dependencies": {
+    "@blindpass/privacy-pass": "workspace:*",
+    "@blindpass/shared": "workspace:*"
+  }
+}

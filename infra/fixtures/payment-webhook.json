@@ -1,0 +1,9 @@
+{
+  "eventId": "fixture-payment-confirmed-001",
+  "invoiceId": "REPLACE_WITH_AN_EXISTING_INVOICE_ID",
+  "txid": "FIXTURE_NOT_A_REAL_TRANSACTION",
+  "amount": "0.01",
+  "blockHeight": 123456,
+  "confirmations": 3,
+  "reorg": false
+}

@@ -1,0 +1,73 @@
+{
+  "name": "blindpass",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.10.0",
+  "pnpm": {
+    "overrides": {
+      "sjcl": "1.0.9"
+    }
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "tsx scripts/dev.ts",
+    "demo": "tsx scripts/demo.ts",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "dev:api": "tsx watch apps/api/src/main.ts",
+    "dev:web": "pnpm --filter @blindpass/web dev",
+    "blindpass": "tsx cli/src/main.ts",
+    "demo:confirm-payment": "tsx cli/src/main.ts demo:pay",
+    "test": "vitest run",
+    "test:crypto": "vitest run tests/crypto.test.ts",
+    "test:stress": "tsx tests/stress.ts",
+    "test:integration": "vitest run tests/integration.test.ts",
+    "test:e2e": "playwright test",
+    "typecheck": "tsc --noEmit && pnpm --filter @blindpass/web typecheck",
+    "lint": "eslint .",
+    "build": "pnpm --filter @blindpass/web build",
+    "start:api": "tsx apps/api/src/main.ts"
+  },
+  "dependencies": {
+    "@cloudflare/privacypass-ts": "0.9.0",
+    "@cloudflare/voprf-ts": "1.0.0",
+    "@fastify/cors": "^11.3.0",
+    "@fastify/helmet": "^13.1.1",
+    "@fastify/rate-limit": "^11.2.0",
+    "@fontsource-variable/geist": "^5.3.0",
+    "@fontsource-variable/geist-mono": "^5.3.0",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@tanstack/react-query": "^5.103.1",
+    "commander": "^15.0.0",
+    "dotenv": "^18.0.1",
+    "drizzle-orm": "^0.45.2",
+    "fastify": "^5.12.5",
+    "lucide-react": "^1.47.0",
+    "next": "^16.3.5",
+    "node-fetch": "^3.3.2",
+    "postgres": "^3.4.9",
+    "qrcode.react": "^4.2.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "socks-proxy-agent": "^10.1.0",
+    "tailwindcss": "^4.3.3",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^26.6.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "eslint": "^10.11.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "fast-xml-parser": "^5.11.1",
+    "prettier": "^3.9.8",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.70.0",
+    "vitest": "^5.0.1"
+  }
+}

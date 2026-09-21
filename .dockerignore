@@ -1,0 +1,12 @@
+node_modules
+**/node_modules
+**/.next
+.git
+.env
+.env.local
+.secrets
+.blindpass
+test-results
+playwright-report
+coverage
+*.tsbuildinfo

@@ -1,0 +1,12 @@
+{
+  "name": "@blindpass/zcash",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./scanner": "./src/scanner.ts"
+  },
+  "dependencies": {
+    "@blindpass/shared": "workspace:*"
+  }
+}

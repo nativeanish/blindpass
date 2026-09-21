@@ -1,0 +1,18 @@
+{
+  "name": "@blindpass/web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --hostname 0.0.0.0",
+    "build": "next build",
+    "start": "next start --hostname 0.0.0.0",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@blindpass/client": "workspace:*",
+    "@blindpass/shared": "workspace:*",
+    "@blindpass/privacy-pass": "workspace:*",
+    "@blindpass/ui": "workspace:*"
+  }
+}

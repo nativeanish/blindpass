@@ -1,0 +1,12 @@
+{
+  "name": "@blindpass/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@blindpass/server": "workspace:*",
+    "@blindpass/zcash": "workspace:*",
+    "@blindpass/shared": "workspace:*",
+    "@blindpass/privacy-pass": "workspace:*"
+  }
+}

@@ -1,0 +1,466 @@
+openapi: 3.1.0
+info:
+  title: BlindPass API
+  version: 0.1.0
+  description: |
+    Accountless fixed-cost search using RFC 9578 type 0x0001 credentials.
+    Development payments are simulated; cryptography is real.
+    The ten-request JSON issuance envelope is application-specific.
+servers:
+  - url: http://localhost:3001
+tags:
+  - name: Public
+  - name: Purchase
+  - name: Credentials
+  - name: Resource
+  - name: Scanner
+paths:
+  /api/health:
+    get:
+      operationId: health
+      tags: [Public]
+      responses:
+        "200":
+          description: PostgreSQL and API available
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, mode, environment, epoch]
+                properties:
+                  status: { type: string, const: ok }
+                  mode: { type: string, enum: [mock, scanner] }
+                  environment:
+                    { type: string, enum: [development, test, production] }
+                  epoch: { type: string, example: "2026-09" }
+  /api/offers:
+    get:
+      operationId: listOffers
+      tags: [Public]
+      responses:
+        "200":
+          description: Fixed-denomination offers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    [id, name, zecAmount, creditCount, tokenClass, enabled]
+                  properties:
+                    id: { type: string, example: search-10 }
+                    name: { type: string }
+                    zecAmount: { type: string, example: "0.01" }
+                    creditCount: { type: integer, example: 10 }
+                    tokenClass: { type: string, example: search-v1 }
+                    enabled: { type: boolean }
+  /api/invoices:
+    post:
+      operationId: createInvoice
+      tags: [Purchase]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [offerId]
+              properties:
+                offerId: { type: string, const: search-10 }
+      responses:
+        "201":
+          description: Signed invoice plus a one-time returned random capability; store it securely
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invoice" }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /api/invoices/{capability}:
+    get:
+      operationId: getInvoice
+      tags: [Purchase]
+      description: The path is sensitive. Do not log it. Invoice IDs alone do not grant access.
+      parameters:
+        - name: capability
+          in: path
+          required: true
+          schema: { type: string, minLength: 40, maxLength: 80 }
+      responses:
+        "200":
+          description: Current invoice state; the capability is not echoed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invoice" }
+        "404": { $ref: "#/components/responses/Error" }
+  /.well-known/private-token-issuer-directory:
+    get:
+      operationId: issuerDirectory
+      tags: [Credentials]
+      responses:
+        "200":
+          description: RFC directory fields plus the signed common BlindPass manifest
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: "#/components/schemas/SignedManifest" }
+                  - type: object
+                    required: [issuer-request-uri, token-keys]
+                    properties:
+                      issuer-request-uri:
+                        { type: string, example: /api/issuance }
+                      token-keys:
+                        type: array
+                        items:
+                          type: object
+                          required: [token-type, token-key]
+                          properties:
+                            token-type: { type: integer, const: 1 }
+                            token-key:
+                              {
+                                type: string,
+                                description: Padded base64url encoded public key,
+                              }
+                            not-before:
+                              { type: integer, description: UTC Unix seconds }
+  /api/issuance:
+    post:
+      operationId: issueBlindBatch
+      tags: [Credentials]
+      description: |
+        Requires confirmed payment. Exactly ten distinct serialized 52-byte blinded requests.
+        Identical-transcript retry returns identical evaluations; another batch is refused.
+        No final unblinded credential belongs in this request.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [capability, configurationHash, requests]
+              properties:
+                capability: { type: string, minLength: 40, maxLength: 80 }
+                configurationHash:
+                  {
+                    type: string,
+                    description: SHA-256 canonical common manifest,
+                    padded base64url,
+                  }
+                requests:
+                  type: array
+                  minItems: 10
+                  maxItems: 10
+                  uniqueItems: true
+                  items:
+                    {
+                      type: string,
+                      description: Padded base64url RFC 9578 token request,
+                    }
+      responses:
+        "200":
+          description: Ten evaluated elements/proofs and the same shared configuration
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [responses, configuration]
+                properties:
+                  responses:
+                    type: array
+                    minItems: 10
+                    maxItems: 10
+                    items:
+                      {
+                        type: string,
+                        description: Padded base64url 145-byte RFC 9578 response,
+                      }
+                  configuration: { $ref: "#/components/schemas/SignedManifest" }
+        "400": { $ref: "#/components/responses/Error" }
+        "402": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "410": { $ref: "#/components/responses/Error" }
+  /api/search:
+    get:
+      operationId: privateSearch
+      tags: [Resource]
+      security: [{ PrivateToken: [] }]
+      description: One valid single-use credential pays for one completed local query, including a query with no matches.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 240 }
+      responses:
+        "200":
+          description: Credential atomically spent; query not stored as history
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [query, results, total, creditConsumed]
+                properties:
+                  query: { type: string }
+                  creditConsumed: { type: boolean, const: true }
+                  total: { type: integer, minimum: 0 }
+                  results:
+                    type: array
+                    maxItems: 20
+                    items:
+                      type: object
+                      required: [id, title, url, description, category]
+                      properties:
+                        id: { type: string }
+                        title: { type: string }
+                        url: { type: string, format: uri }
+                        description: { type: string }
+                        category: { type: string }
+        "400": { $ref: "#/components/responses/Error" }
+        "401":
+          description: Missing, invalid, expired or wrong-context credential
+          headers:
+            WWW-Authenticate:
+              schema: { type: string }
+              description: RFC 9577 PrivateToken challenge and token key
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /api/privacy-audit:
+    get:
+      operationId: privacyAuditSummary
+      tags: [Public]
+      responses:
+        "200":
+          description: Aggregate common-class purchase count, not a count of distinct people or a privacy score
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  commonClassPurchases: { type: integer }
+                  distinctPeopleKnown: { type: boolean, const: false }
+                  epoch: { type: string }
+                  paymentMode: { type: string }
+                  networkMeasured: { type: boolean, const: false }
+  /webhooks/zcash/payment:
+    post:
+      operationId: paymentWebhook
+      tags: [Scanner]
+      description: Only registered in scanner mode. Signature covers timestamp + dot + exact raw JSON bytes. Events are deduplicated by eventId.
+      parameters:
+        - name: X-Blindpass-Timestamp
+          in: header
+          required: true
+          schema: { type: string, pattern: '^\d{10}$' }
+        - name: X-Blindpass-Signature
+          in: header
+          required: true
+          schema: { type: string, pattern: "^[a-f0-9]{64}$" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [eventId, invoiceId, txid, amount, confirmations]
+              properties:
+                eventId: { type: string }
+                invoiceId: { type: string }
+                txid: { type: string }
+                amount: { type: string, pattern: '^\d+(\.\d{1,8})?$' }
+                blockHeight: { type: [integer, "null"], minimum: 0 }
+                confirmations: { type: integer, minimum: 0 }
+                reorg: { type: boolean, default: false }
+      responses:
+        "200":
+          description: Authenticated observation accepted
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+components:
+  securitySchemes:
+    PrivateToken:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: 'RFC 9577 syntax: PrivateToken token="<padded base64url 146-byte token>". This OpenAPI header representation is not an account API key.'
+  responses:
+    Error:
+      description: Machine-readable error without credential material
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum:
+                [
+                  PAYMENT_NOT_CONFIRMED,
+                  INVOICE_EXPIRED,
+                  ISSUANCE_ALREADY_COMPLETED,
+                  ISSUER_POLICY_VIOLATION,
+                  INVALID_TOKEN,
+                  TOKEN_ALREADY_SPENT,
+                  TOKEN_EXPIRED,
+                  WRONG_TOKEN_CLASS,
+                  WRONG_ISSUER_EPOCH,
+                  SERVICE_TEMPORARILY_UNAVAILABLE,
+                  TOR_NOT_AVAILABLE,
+                  INVALID_REQUEST,
+                  NOT_FOUND,
+                  VAULT_LOCKED,
+                ]
+            message: { type: string }
+    SignedManifest:
+      type: object
+      required: [manifest, signature, signingPublicKey]
+      properties:
+        signature:
+          {
+            type: string,
+            description: Ed25519 signature of canonical manifest,
+            padded base64url,
+          }
+        signingPublicKey:
+          {
+            type: string,
+            description: Raw Ed25519 identity key,
+            padded base64url; requires trusted pin/bootstrap,
+          }
+        manifest:
+          type: object
+          additionalProperties: false
+          required:
+            [
+              version,
+              issuer,
+              activeKeyId,
+              tokenType,
+              tokenClass,
+              epoch,
+              validFrom,
+              issuanceEndsAt,
+              expiresAt,
+              publicKey,
+              originScope,
+              batchSize,
+            ]
+          properties:
+            version: { type: integer, const: 1 }
+            issuer: { type: string }
+            activeKeyId: { type: string }
+            tokenType: { type: integer, const: 1 }
+            tokenClass: { type: string, const: search-v1 }
+            epoch: { type: string, pattern: '^\d{4}-\d{2}$' }
+            validFrom: { type: string, format: date-time }
+            issuanceEndsAt: { type: string, format: date-time }
+            expiresAt: { type: string, format: date-time }
+            publicKey: { type: string }
+            originScope: { type: string }
+            batchSize: { type: integer, const: 10 }
+    Invoice:
+      type: object
+      required:
+        [
+          id,
+          offerId,
+          zecAmount,
+          creditCount,
+          tokenClass,
+          issuerEpoch,
+          issuerConfigHash,
+          paymentAddress,
+          paymentUri,
+          status,
+          expiresAt,
+          issuanceDeadline,
+          createdAt,
+          document,
+          simulated,
+        ]
+      properties:
+        id: { type: string }
+        capability:
+          {
+            type: string,
+            description: Returned only at creation; random 256-bit authorization secret,
+          }
+        offerId: { type: string }
+        zecAmount: { type: string }
+        creditCount: { type: integer }
+        tokenClass: { type: string }
+        issuerEpoch: { type: string }
+        issuerConfigHash: { type: string }
+        paymentAddress: { type: string }
+        paymentUri: { type: string }
+        status:
+          type: string
+          enum:
+            [
+              WAITING_FOR_PAYMENT,
+              PAYMENT_DETECTED,
+              WAITING_FOR_CONFIRMATION,
+              PAYMENT_CONFIRMED,
+              ISSUING_PRIVATE_CREDITS,
+              CREDITS_READY,
+              EXPIRED,
+              PAYMENT_REORGED,
+            ]
+        expiresAt: { type: string, format: date-time }
+        issuanceDeadline: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+        simulated: { type: boolean }
+        document:
+          type: object
+          required: [document, signature, signingPublicKey]
+          properties:
+            signature: { type: string }
+            signingPublicKey: { type: string }
+            document:
+              type: object
+              required:
+                [
+                  invoice_id,
+                  offer_id,
+                  zec_amount,
+                  credit_count,
+                  token_class,
+                  issuer_configuration_hash,
+                  payment_address,
+                  confirmation_policy,
+                  payment_deadline,
+                  issuance_deadline,
+                  refund_policy,
+                ]
+              properties:
+                invoice_id: { type: string }
+                offer_id: { type: string }
+                zec_amount: { type: string }
+                credit_count: { type: integer }
+                token_class: { type: string }
+                issuer_configuration_hash: { type: string }
+                payment_address: { type: string }
+                confirmation_policy: { type: integer }
+                payment_deadline: { type: string, format: date-time }
+                issuance_deadline: { type: string, format: date-time }
+                refund_policy: { type: string }
+x-development-routes:
+  description: These routes are registered only outside production and only with the mock watcher. They are intentionally excluded from the public production surface.
+  routes:
+    - POST /api/dev/pay/{invoiceId}
+    - GET /api/dev/malicious-config/{kind}
+    - GET /api/admin/stats

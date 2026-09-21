@@ -1,0 +1,14 @@
+{
+  "name": "@blindpass/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "blindpass": "./bin/blindpass.mjs"
+  },
+  "dependencies": {
+    "@blindpass/client": "workspace:*",
+    "@blindpass/shared": "workspace:*",
+    "@blindpass/privacy-pass": "workspace:*"
+  }
+}

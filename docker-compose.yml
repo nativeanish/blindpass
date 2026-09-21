@@ -1,0 +1,56 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: blindpass
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-blindpass-local-only}
+      POSTGRES_DB: blindpass
+    ports: ["127.0.0.1:${POSTGRES_PORT:-5432}:5432"]
+    volumes: ["postgres_data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U blindpass"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  api:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile
+      target: api
+    environment:
+      DATABASE_URL: postgres://blindpass:${POSTGRES_PASSWORD:-blindpass-local-only}@postgres:5432/blindpass
+      BLINDPASS_ENV: development
+      ZCASH_PAYMENT_MODE: mock
+      ISSUER_ORIGIN: localhost:3000
+      BLINDPASS_SECRETS_DIR: /app/.secrets
+      DOTENV_CONFIG_QUIET: "true"
+    ports: ["127.0.0.1:3001:3001"]
+    volumes: ["issuer_secrets:/app/.secrets"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3001/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+  web:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile
+      target: web
+    environment:
+      API_INTERNAL_URL: http://api:3001
+      NEXT_TELEMETRY_DISABLED: "1"
+    ports: ["127.0.0.1:3000:3000"]
+    depends_on:
+      api:
+        condition: service_healthy
+  tor:
+    profiles: ["tor"]
+    build:
+      context: infra/tor
+    ports: ["127.0.0.1:9050:9050"]
+volumes:
+  postgres_data:
+  issuer_secrets:
