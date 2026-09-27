@@ -15,6 +15,8 @@
   "scripts": {
     "dev": "tsx scripts/dev.ts",
     "demo": "tsx scripts/demo.ts",
+    "book:build": "tsx scripts/build-book.ts",
+    "book:check": "tsx scripts/build-book.ts --check",
     "db:migrate": "tsx scripts/migrate.ts",
     "dev:api": "tsx watch apps/api/src/main.ts",
     "dev:web": "pnpm --filter @blindpass/web dev",
