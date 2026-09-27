@@ -20,6 +20,39 @@ and is expanded from the same file that the tests execute. Commands run from
 the repository root on Node.js 22 or newer. PostgreSQL examples target version 17. Development payment events are conspicuously simulated; real Privacy Pass
 cryptography is never mocked.
 
+### How to build with this book
+
+This edition is organized as five construction parts. Do not read a chapter as
+an isolated survey. Begin each part with the previous checkpoint running, make
+the described files, and run the narrow test before moving on. Every chapter
+uses the same rhythm:
+
+1. **State the invariant.** Write down what must remain true under failure and
+   concurrency.
+2. **Place the boundary.** Decide which package owns that invariant and what it
+   is forbidden to know.
+3. **Build in passes.** Add types first, then the smallest working path, then
+   rejection and recovery behavior.
+4. **Read the complete file.** Listings are expanded from the live workspace,
+   so imports, exports, and error branches are present.
+5. **Break it deliberately.** Run a focused test that attacks the new boundary.
+6. **Checkpoint.** Leave the repository compiling before the next chapter.
+
+The full-file listings are reference snapshots after a build step. The prose
+immediately before and after each listing tells you which block to write first,
+how data moves through it, and why each rejection branch exists. Type the code
+in that order even though the final listing appears as one complete module.
+
+### Parts and construction checkpoints
+
+| Part             | Chapters | What exists at the checkpoint                                                  |
+| ---------------- | -------- | ------------------------------------------------------------------------------ |
+| I — Foundations  | 1–3      | Strict monorepo, domain types, privacy-shaped PostgreSQL schema                |
+| II — Credentials | 4–6      | Blind issuance, atomic redemption, pinned issuer policy                        |
+| III — Payments   | 7–8      | Exact ZEC arithmetic, scanner adapter, authenticated reorg-aware events        |
+| IV — Clients     | 9–11     | Encrypted CLI and browser vaults, complete SDK flow, fail-closed Tor transport |
+| V — Assurance    | 12–13    | Model and attack suite, production build and operating controls                |
+
 ### Contents
 
 1. The Accountless Architecture
@@ -60,7 +93,18 @@ pnpm test
 The examples assume `localhost:3000` is the issuer origin and `localhost:3001`
 is the API. Never pay a `SIMULATED-NOT-PAYABLE-...` address.
 
+# Part I — Foundations
+
+Define the privacy claim, verify the VOPRF wire format, and create a schema that cannot record a user-token relationship.
+
 # 1 The Accountless Architecture
+
+> **Part I — Foundations · Build checkpoint 1 of 3**
+
+In this chapter you will not implement authentication yet. You will first turn
+the privacy claim into repository rules that later code must satisfy. The
+deliverable is a failing-or-passing architecture test, not a diagram that can
+drift away from the code.
 
 An API key looks harmless until you draw the joins. A conventional service
 stores a customer, a payment, a key, and every request made with that key. Even
@@ -73,7 +117,7 @@ that says only “the issuer created one credit for this token class.” The buy
 does not authenticate. The redeemer does not present an invoice. Ten credits
 mean ten independent random token inputs, not a balance row.
 
-## 1.1 Separate facts before choosing cryptography
+## 1.1 Step 1 — Separate facts before choosing cryptography
 
 The system has four facts and deliberately refuses to create a fifth:
 
@@ -106,7 +150,7 @@ The capability returned with an invoice is a secret reference, not an account.
 The server stores its SHA-256 digest. Anyone holding it can inspect and issue
 that invoice, so the client must protect it until issuance completes.
 
-## 1.2 State the privacy claim narrowly
+## 1.2 Step 2 — State the privacy claim narrowly
 
 Under the VOPRF assumptions and correct implementation, an issuer cannot match
 an issued request to a later valid token better than guessing among compatible
@@ -131,7 +175,7 @@ later token T                   redeem time and request contents
 B does not identify T.          Metadata may still correlate the sessions.
 ```
 
-## 1.3 Encode architectural absences as tests
+## 1.3 Step 3 — Encode architectural absences as tests
 
 Security review often focuses on code that exists. Privacy also depends on code
 that must never appear. This test scans migration and API source for identity
@@ -175,13 +219,20 @@ schema. The server-package check protects the redemption dependency direction.
 The logging check protects the application configuration. Deployment proxies
 and hosted database logs still require independent review.
 
+Build this test in three passes. First assert that the migration contains a
+`redeemed_tokens` table; this keeps a renamed or missing schema from producing a
+false pass. Second reject identity-shaped columns and invoice references from
+that table. Third read the server and API composition sources and reject payment
+imports, invoice queries, and enabled request logging. Each pass constrains a
+different layer, so a failure points to the boundary that moved.
+
 Run the chapter's executable check:
 
 ```bash
 pnpm exec vitest run tests/architecture.test.ts
 ```
 
-## 1.4 Attack the mental model
+## 1.4 Step 4 — Attack the mental model
 
 Ask what happens if a developer adds `invoice_id` to `redeemed_tokens` “for
 support.” Redemption immediately becomes linkable even though every curve
@@ -195,13 +246,23 @@ the cryptographic input, configuration policy, transport, storage, and
 operations all refuse distinguishing data. The remaining chapters implement
 that rule one boundary at a time.
 
-### Checkpoint
+### Build checkpoint
 
 You should now be able to explain why deleting the user table is necessary but
 insufficient, why a bearer token must be single-use, and why payment privacy and
 credential unlinkability are separate properties.
 
+Before continuing, keep `tests/architecture.test.ts` green. Chapter 3 will make
+its schema assertions concrete.
+
 # 2 Oblivious Pseudorandom Functions in Practice
+
+> **Part I — Foundations · Build checkpoint 2 of 3**
+
+This chapter builds the cryptographic laboratory before application code. You
+will install the provider, pin deterministic inputs in a test, and prove the
+library produces independently known wire bytes. Chapter 4 will wrap the same
+objects in BlindPass policy.
 
 The VOPRF lets a client obtain `F_k(x)` without revealing `x` to the server and
 without letting a cheating server substitute another function unnoticed. In
@@ -209,7 +270,7 @@ BlindPass, `x` contains the token type, a fresh nonce, a challenge digest, and
 the issuer key identifier. The final authenticator is derived from that input;
 the issuer sees only a blinded curve element during issuance.
 
-## 2.1 From hash input to blind evaluation
+## 2.1 Step 1 — Derive the blind-evaluation mental model
 
 Let `G` be the prime-order P-384 group with generator `g`, order `q`, issuer
 secret scalar `k`, and public key `K = kG`. `HashToGroup(x)` maps arbitrary
@@ -248,7 +309,7 @@ sequenceDiagram
   C->>C: verify proof; N = r^-1 Z; y = Finalize(x,N)
 ```
 
-## 2.2 Use the standardized implementation
+## 2.2 Step 2 — Install the standardized provider
 
 P-384 point decoding, hash-to-curve, scalar sampling, proof transcripts, and
 wire lengths are exactly the places where “small” custom implementations fail.
@@ -269,7 +330,14 @@ entry points import it first, so `privateVerif.Client`, `Issuer`, and token
 deserializers use the same `CryptoNoble` backend from `@cloudflare/voprf-ts`.
 No application code reaches into `@noble/curves` internals.
 
-## 2.3 Verify bytes, not just round trips
+Build this file first and keep it deliberately boring. The first import obtains
+the global VOPRF configuration point. The second obtains the reviewed Noble
+adapter. The assignment happens at module evaluation time. Any module that
+constructs a Privacy Pass client before this import risks capturing a missing or
+different provider, so `packages/privacy-pass/src/index.ts` imports
+`./provider.ts` as its first statement.
+
+## 2.3 Step 3 — Lock the wire format to a reference vector
 
 A client and server with the same bug can pass a round-trip test. Reference
 vectors instead fix the nonce, blinding scalar, public key, request bytes,
@@ -330,13 +398,20 @@ would make randomness tests meaningless. The response proof is randomized, so
 the test compares the deterministic evaluated-element prefix and then verifies
 the complete proof through finalization.
 
+Construct the test from the outside inward. Load hexadecimal vector fields as
+bytes. Freeze the nonce and scalar only for one test. Ask the public client API
+to serialize a request and compare all bytes. Ask the issuer to evaluate it and
+compare the deterministic point. Finally let the client verify the randomized
+proof and compare the final token. This order tells you whether a failure starts
+in request construction, server evaluation, or finalization.
+
 Run both vector and adversarial cryptography tests:
 
 ```bash
 pnpm exec vitest run tests/vectors.test.ts tests/crypto.test.ts
 ```
 
-## 2.4 Boundary conditions that fail closed
+## 2.4 Step 4 — Add rejection cases
 
 The curve library cannot decide application policy. BlindPass additionally
 rejects a request or response with the wrong exact length, a noncanonical
@@ -351,13 +426,25 @@ The HMAC boundary in chapter 8 uses `timingSafeEqual` because it compares a
 secret-derived authenticator. Do not add diagnostic logs for blinders, private
 keys, nonces before finalization, or raw credentials.
 
-### Checkpoint
+### Build checkpoint
 
 You should be able to derive `r^-1(k(rM)) = kM`, explain what the DLEQ proof
 prevents, and explain why a reference-vector test catches errors that a local
 client/server round trip cannot.
 
+Leave both crypto tests green before adding application encodings:
+
+```bash
+pnpm exec vitest run tests/vectors.test.ts tests/crypto.test.ts
+```
+
 # 3 Monorepo Foundation & Schema Design
+
+> **Part I — Foundations · Build checkpoint 3 of 3**
+
+You will now create the packages, the shared vocabulary, and the first database
+migration. Work in that order. Types make illegal states visible to the
+compiler; the migration then makes concurrent processes obey the same rules.
 
 The repository mirrors trust boundaries. Shared schemas know nothing about
 PostgreSQL. The cryptographic package knows nothing about invoices. The server
@@ -373,7 +460,7 @@ apps/web ──> @blindpass/client ──> @blindpass/privacy-pass
 cli ───────> @blindpass/client
 ```
 
-## 3.1 Establish one strict TypeScript world
+## 3.1 Step 1 — Scaffold one strict TypeScript world
 
 The workspace uses ESM, bundler-style resolution, strict checking, DOM types
 for Web Crypto, and Node types for the API and CLI. Package exports point at
@@ -426,7 +513,13 @@ Run the first structural gate before adding business logic:
 pnpm typecheck
 ```
 
-## 3.2 Make encodings and policy types explicit
+Create package manifests after the root compiler passes. Each package exports a
+single source entry point during the lab. Keep dependency arrows one-way:
+`shared` has no workspace dependency, `privacy-pass` depends on `shared`, and
+`server` depends on both. If shared code imports the API, the boundary has
+already collapsed.
+
+## 3.2 Step 2 — Build encodings, errors, and signed types
 
 The shared module is the vocabulary of the system. Its base64url encoder keeps
 RFC-required padding: replacing characters is correct, stripping `=` would
@@ -654,12 +747,19 @@ Walk through the security-critical lines:
 6. Ed25519 keys are imported non-extractably for verification. The public key
    fingerprint is a SHA-256 trust anchor, not a user identifier.
 
+Build the module in four passes. Start with `BlindPassError` and byte helpers so
+every later package shares one encoding. Add canonical JSON and signature
+verification next. Add epoch derivation before the manifest schema so dates are
+policy outputs rather than arbitrary strings. Finish with invoice and credential
+interfaces. Run `pnpm typecheck` after each pass; this catches accidental Node
+`Buffer` dependencies that would break the browser package.
+
 `localeCompare(..., "en")` is deterministic for this restricted ASCII schema,
 but it is not a standards-track JSON Canonicalization Scheme. If documents will
 cross implementations, adopt RFC 8785 and version the signed format before
 deployment.
 
-## 3.3 Design tables around state machines
+## 3.3 Step 3 — Translate privacy boundaries into tables
 
 The migration stores money-side state and redemption-side state without a join
 path. Amounts remain decimal strings; JavaScript floating point never touches
@@ -809,7 +909,19 @@ state, and timestamps. It has no invoice foreign key, client ID, IP address,
 query, or raw token. The composite primary key is the concurrency primitive
 used in chapter 5.
 
-## 3.4 Bring up the database
+Write the migration from independent aggregates toward the sensitive boundary:
+
+1. Create offers and issuer epochs.
+2. Create invoices and payment events, which may reference one another.
+3. Create one issuance authorization per invoice for retry control.
+4. Create `redeemed_tokens` last and deliberately omit an invoice reference.
+5. Add the composite primary key that chapter 5 will use as an atomic arbiter.
+
+Then mirror those names in Drizzle. The SQL migration remains the deployment
+authority; the Drizzle module provides typed queries and must not invent extra
+columns.
+
+## 3.4 Step 4 — Migrate and inspect the result
 
 ```bash
 docker compose up -d postgres
@@ -822,21 +934,35 @@ Point tests at a disposable database. The integration harness creates random
 schemas and drops them after each file; it still needs permission to create and
 drop schemas. Never run destructive test setup against a production database.
 
-### Checkpoint
+### Part I checkpoint
 
 At this point the workspace can express signed configuration, invoices,
 credentials, and errors without an identity model. The schema can answer “was
 this invoice paid?” and “was this token spent?” but has no column that answers
 “who did either action?”
 
+Commit or otherwise save this green state. Part II assumes strict types, a
+running PostgreSQL instance, and the schema exactly as printed here.
+
+# Part II — The credential engine
+
+Build blind issuance, atomic single-use redemption, and client-enforced issuer consistency.
+
 # 4 The Blind Issuance Pipeline
+
+> **Part II — Credentials · Build checkpoint 1 of 3**
+
+This chapter turns the cryptographic lab into a paid issuance pipeline. Build
+from the client inward: define the common challenge, create one independent
+client per credit, add issuer evaluation, and only then wrap it in the invoice
+transaction.
 
 A paid invoice should authorize exactly ten evaluations, yet the invoice must
 never become part of a final token. This creates a sharp boundary: HTTP
 authorization proves the right to call the issuer; VOPRF input defines the
 credential that can later be redeemed. Mixing them creates a permanent tag.
 
-## 4.1 Bind tokens to common policy
+## 4.1 Step 1 — Derive one common challenge
 
 `challengeFor` hashes a canonical object containing a domain label, shared
 token class, monthly epoch, and common expiry. It then builds the RFC 9577
@@ -1058,6 +1184,19 @@ export async function wwwAuthenticate(manifest: Manifest) {
 }
 ```
 
+Build this module in five passes:
+
+1. Import `provider.ts` first and re-export only the standardized types callers
+   need.
+2. Implement `challengeFor`. Hash a domain-separated canonical object and place
+   its digest in `TokenChallenge`; do not add invoice data.
+3. Implement `createBlindBatch`. Construct ten separate client objects, then
+   keep those objects closed over by `finalize` so their secret blinders never
+   leave the process.
+4. Implement `TokenIssuer.evaluate` and `verify` with exact byte-length and key
+   checks around the library calls.
+5. Add RFC 9577 header serialization and the domain-separated spent hash.
+
 The important lines deserve slow reading:
 
 - One `privateVerif.Client` instance owns one nonce and blinder. Reusing a
@@ -1073,7 +1212,12 @@ The important lines deserve slow reading:
 - The spent hash has a domain prefix. The same raw token hashed for another
   feature cannot collide semantically with the redemption set.
 
-## 4.2 Consume a paid authorization once
+Trace one array index through the module. `clients[i]` creates `requests[i]`;
+the issuer returns `responses[i]`; `clients[i].finalize(responses[i])` recovers
+the corresponding token. Reordering responses fails proof finalization because
+each client retains a different blinder and input.
+
+## 4.2 Step 2 — Consume a paid authorization once
 
 Issuance itself is a database state transition. The transaction locks both the
 invoice and its authorization row. It computes a hash of the ordered request
@@ -1144,11 +1288,18 @@ bounds each invoice to one in-flight issuance. At larger scale, a durable
 the exact request transcript. Never “retry” by evaluating a new batch after a
 client may have received the old responses; that mints extra credits.
 
+Write `issue` as a sequence of guards before mutations. Validate batch shape
+outside the transaction. Inside it, hash the capability and lock the invoice;
+compare configuration hashes; lock the authorization; handle an identical
+completed request as a retry; reject expiry or unpaid state; evaluate; then
+persist both response and completion state. The order ensures every early exit
+leaves the rows unchanged.
+
 The `configurationHash` check closes a confused-deputy path. An invoice signed
 for epoch A cannot silently issue against epoch B after rotation. The capability
 is hashed before lookup, so a database read does not expose bearer secrets.
 
-## 4.3 Exercise success and malicious responses
+## 4.3 Step 3 — Exercise success and malicious responses
 
 **Listing — `tests/crypto.test.ts` (complete file)**
 
@@ -1239,12 +1390,21 @@ Do not issue a partial batch and report success: the buyer paid for a fixed
 denomination, so response count is an invariant. Do not derive a per-invoice
 issuer key; that is a perfect partition tag disguised as key management.
 
-### Checkpoint
+### Build checkpoint
 
 You now have real blinded issuance: payment authorizes an evaluation count,
 while common policy and fresh client randomness determine the final tokens.
 
+Do not proceed until the vector, crypto, and issuance-idempotency cases all pass.
+
 # 5 Redemption Middleware & Transactional Double-Spend Prevention
+
+> **Part II — Credentials · Build checkpoint 2 of 3**
+
+You will build redemption twice mentally: first the broken read-then-insert
+version, then the atomic unique-insert version. Only the second version belongs
+in the file. The contrast explains why the SQL statement is the synchronization
+primitive.
 
 Cryptographic verification answers “did an issuer create this token?” It does
 not answer “has somebody already spent it?” Two requests can verify the same
@@ -1260,7 +1420,7 @@ request B: perform paid work; INSERT or fail too late
 The reservation and the protected work must share one authoritative database
 transaction.
 
-## 5.1 Let the unique constraint choose the winner
+## 5.1 Step 1 — Define the verifier boundary
 
 **Listing — `packages/blindpass-server/src/index.ts` (complete file)**
 
@@ -1329,7 +1489,14 @@ export function blindpass(options: {
 }
 ```
 
-Follow `redeem` line by line:
+Create `CreditVerifier` before the service. This small interface lets tests and
+rotated issuers participate without giving the redemption package access to
+invoice or payment services. The only required facts are a manifest and a
+method that verifies one raw token for one class.
+
+## 5.2 Step 2 — Let the unique constraint choose the winner
+
+Now follow `redeem` line by line:
 
 1. Parse one canonical RFC 9577 authorization value.
 2. Try active and grace-period issuer keys until one verifies cryptographically
@@ -1365,7 +1532,12 @@ an atomic selection and reservation of multiple independent tokens or a
 different credential construction; silently looping would create partial-spend
 failure modes.
 
-## 5.2 Make the protected effect transactional
+When typing the SQL, keep `ON CONFLICT DO NOTHING RETURNING token_hash` in one
+statement. Splitting it into a `SELECT` and `INSERT`, even inside the default
+`READ COMMITTED` isolation level, restores the race. The returned row is the
+proof that this transaction won.
+
+## 5.3 Step 3 — Make the protected effect transactional
 
 Reservation alone is insufficient if the paid side effect happens in another
 database or an irreversible external service. BlindPass search executes with
@@ -1380,7 +1552,7 @@ cap concurrent requests. A crashed connection rolls back its reservation.
 Stale `reserved` rows should therefore indicate a code path that committed
 without the final update, not a normal crash recovery mechanism.
 
-## 5.3 Prove the race at the boundary
+## 5.4 Step 4 — Prove the race at the boundary
 
 **Listing — `tests/replay.test.ts` (complete file)**
 
@@ -1437,6 +1609,11 @@ must receive the stable conflict code. The second token makes the handler throw;
 the next attempt succeeds, proving that reservation rollback follows work
 rollback.
 
+Build the test in two phases. Use one token for twenty concurrent calls and
+count entries into the protected callback. Then use a fresh token for rollback:
+throw from the callback once and redeem again. These phases distinguish mutual
+exclusion from failure recovery.
+
 Run it against PostgreSQL rather than an in-memory imitation:
 
 ```bash
@@ -1453,7 +1630,7 @@ from a valid issuer but another class fails before insertion. A replay after
 epoch rotation still reaches the correct grace-period verifier and the same
 epoch-scoped primary key.
 
-### Checkpoint
+### Build checkpoint
 
 The database is now part of the authorization proof. No API replica can spend a
 token until PostgreSQL grants it the unique reservation, and no reservation
@@ -1461,13 +1638,20 @@ survives failed transactional work.
 
 # 6 Issuer Integrity & Configuration Anchoring
 
+> **Part II — Credentials · Build checkpoint 3 of 3**
+
+The happy path from chapters 4 and 5 trusts the issuer configuration. This
+chapter removes that assumption. You will generate separate signing and VOPRF
+keys, publish a common manifest, pin its identity on the client, and test
+configurations whose signatures are valid but whose privacy policy is hostile.
+
 Blind issuance hides a token from an issuer that uses a common key and common
 challenge. It cannot stop the issuer from handing Alice key A and Bob key B.
 Their later tokens reveal which partition issued them. A merchant signature
 authenticates the partition; it does not prove that everybody saw the same
 configuration.
 
-## 6.1 Separate signing identity from VOPRF epochs
+## 6.1 Step 1 — Separate signing identity from VOPRF epochs
 
 BlindPass maintains a stable Ed25519 signing identity and rotates VOPRF keys by
 UTC calendar month. The signing key authenticates manifests and invoice
@@ -1671,12 +1855,19 @@ The loader enforces several operational invariants:
   secret is an outage, not permission to partition the cohort.
 - Previous secrets remain loaded only through their verification grace period.
 
+Build `loadKeys` in lifecycle order. Load or import the long-lived Ed25519 key;
+create a `sign` closure around the non-extractable private key; resolve the
+current epoch; load or generate its VOPRF scalar; derive the public key and key
+ID; assemble and sign the manifest; compare it with any existing epoch row; then
+load still-valid previous issuers. This order ensures no route can observe a
+half-initialized key set.
+
 The private VOPRF token type is “privately verifiable” in a precise sense: the
 origin needs the issuer secret to verify tokens. Keep issuance and redemption
 within one trust domain or use a dedicated verification service with strict key
 access. Do not distribute that secret to arbitrary origins.
 
-## 6.2 Publish and pin a directory
+## 6.2 Step 2 — Publish and pin a directory
 
 RFC 9578 defines `/.well-known/private-token-issuer-directory`, including an
 issuer request URI and token keys. BlindPass adds a signed manifest containing
@@ -2067,13 +2258,26 @@ epoch, and all dates are locally derived constants. The active key ID must hash
 the advertised public key. A cached configuration for the same epoch must be
 byte-equivalent after canonicalization.
 
+Then follow the SDK from trust establishment to spending:
+
+1. `configuration()` fetches the directory without cookies, validates it under
+   the expected hostname and fingerprint, then saves the pin and manifest.
+2. `buy()` verifies the signed invoice and cross-checks every duplicated field.
+3. `issue()` revalidates configuration before and after the network call,
+   finalizes proofs locally, and saves tokens only after the whole batch passes.
+4. `search()` removes one token before transport and restores it only for
+   failures known not to have committed work.
+
+Each method uses `store.exclusive`; correctness must hold for a file lock, Web
+Lock, or test queue without changing SDK logic.
+
 Trust on first use is still first-use trust. A malicious merchant can show a
 new client a unique signing identity and unique epoch key. Production clients
 should ship a fingerprint through an independent channel or consult a
 transparency log. Cross-client gossip can detect equivocation; a signature by
 itself cannot.
 
-## 6.3 Test a correctly signed malicious issuer
+## 6.3 Step 3 — Test a correctly signed malicious issuer
 
 **Listing — `tests/policy.test.ts` (complete file)**
 
@@ -2147,7 +2351,7 @@ still rejects every response.
 pnpm exec vitest run tests/policy.test.ts
 ```
 
-## 6.4 Rotation without cohort collapse
+## 6.4 Step 4 — Rotate without cohort collapse
 
 Rotate on a public calendar boundary, publish the next key before use, and keep
 the old secret only through its common redemption grace. All clients in an
@@ -2161,20 +2365,34 @@ on more than one key or manifest hash for the same issuer and epoch. Back up the
 stable Ed25519 identity and every still-verifiable VOPRF secret separately,
 encrypted and access controlled.
 
-### Checkpoint
+### Part II checkpoint
 
 The client now treats issuer configuration as a policy commitment, not merely
 signed server data. This closes the simplest malicious-issuer partition attacks
 while leaving global consistency as an explicit transparency problem.
 
+At this point you can issue and redeem real tokens without accounts. Part III
+adds payment authorization; it must not alter token inputs or redemption rows.
+
+# Part III — Shielded payment rails
+
+Authorize issuance from exact, authenticated, reorg-aware Zcash payment state without putting payment data into a token.
+
 # 7 Shielded Payment Architecture (Zcash Orchard)
+
+> **Part III — Payments · Build checkpoint 1 of 2**
+
+This chapter builds the payment port before connecting a scanner. Start with
+exact value conversion, define the watcher interface, and implement a mock that
+cannot be confused with a real wallet. Chapter 8 will implement the production
+adapter and invoice transitions.
 
 Privacy Pass hides the relationship between issuance and redemption. It does
 not hide the payment itself. BlindPass therefore accepts a fixed ZEC amount at
 a fresh diversified Unified Address whose receiver set includes Orchard and
 excludes transparent P2PKH/P2SH receivers.
 
-## 7.1 Understand the boundary
+## 7.1 Step 1 — Draw the custody boundary
 
 ZIP 316 defines Unified Addresses as containers for one or more receiver types.
 An encoded string that merely begins with a familiar prefix is not proof of an
@@ -2200,7 +2418,7 @@ deployed, audited Zcash infrastructure. The API needs incoming viewing and
 address derivation capability through that bridge; it does not need a spending
 key.
 
-## 7.2 Represent value without floating point
+## 7.2 Step 2 — Represent value without floating point
 
 One ZEC equals 100,000,000 zatoshis. Binary floating point cannot exactly
 represent most decimal fractions, so `Number(amount) * 1e8` eventually accepts
@@ -2280,6 +2498,16 @@ export class MockPaymentWatcher implements PaymentWatcher {
 }
 ```
 
+Build the file from pure functions toward effects:
+
+1. Define and export `PaymentEventSchema`; every adapter will validate the same
+   event shape.
+2. Define `PaymentDestination` and `PaymentWatcher` without mentioning a
+   concrete scanner vendor.
+3. Implement `zatoshis` and `paymentUri` as pure, directly testable functions.
+4. Implement `MockPaymentWatcher` last, using the same interface and event
+   subscription behavior as production.
+
 `zatoshis` accepts at most eight fractional digits, pads on the right, and
 returns an exact integer. Leading zeros are harmless. Signs, exponent notation,
 whitespace, and a ninth decimal place are rejected. Production policy should
@@ -2294,7 +2522,7 @@ invoice-specific, so the memo adds no routing value.
 chain connectivity. Never make a development address resemble a valid mainnet
 address.
 
-## 7.3 Fix denomination and cohort shape
+## 7.3 Step 3 — Fix denomination and cohort shape
 
 The current offer is ten credits for `0.01` ZEC. Fixed price avoids encoding a
 customer or invoice in the last zatoshis. Fixed batch size avoids telling the
@@ -2329,20 +2557,31 @@ memo fingerprints the purchase. A zero-confirmation event can disappear in a
 reorganization. Chapter 8 treats scanner input as an authenticated,
 replayable, reversible event stream rather than a final callback.
 
-### Checkpoint
+### Build checkpoint
 
 You now have a payment abstraction with exact units and an honest mock. Real
 custody stays outside the API, while the scanner contract requires a validated,
 diversified Unified Address with an Orchard receiver.
 
+Before continuing, make the arithmetic test pass without importing Fastify or
+PostgreSQL. That independence is the reason the payment package remains easy to
+audit.
+
 # 8 Watchers, Webhooks, and Reorg Resistance
+
+> **Part III — Payments · Build checkpoint 2 of 2**
+
+You now have a watcher port and an invoice schema. This chapter implements the
+untrusted scanner adapter, plugs raw-body authentication into Fastify, and then
+moves invoice state under a row lock. Build and test each boundary separately
+before composing them.
 
 Payment webhooks cross two trust boundaries: an external scanner asserts chain
 state, and an HTTP parser wants to transform the request before authentication.
 BlindPass authenticates the exact received bytes, deduplicates events, and
 allows pre-issuance confirmation state to move backward on a reorganization.
 
-## 8.1 Authenticate raw bytes
+## 8.1 Step 1 — Implement the scanner adapter
 
 **Listing — `packages/zcash/src/scanner.ts` (complete file)**
 
@@ -2486,6 +2725,13 @@ export class ScannerPaymentWatcher implements PaymentWatcher {
 }
 ```
 
+Construct `ScannerPaymentWatcher` in four passes. Validate constructor policy
+first: HTTPS outside explicit local hosts and a sufficiently long webhook
+secret. Add the outbound `request` helper with redirect and timeout limits.
+Implement `createInvoice` and reject transparent or wrong-network receivers.
+Finally add `webhook`, authenticating raw bytes before JSON parsing or listener
+dispatch.
+
 The bridge signs `timestamp + "." + rawBody` with HMAC-SHA-256. Verification
 rejects missing or malformed headers, timestamps more than five minutes away,
 and non-hex signatures. Both digest buffers are known to be 32 bytes before
@@ -2500,6 +2746,8 @@ Parsing JSON before verification is wrong because equivalent JSON documents
 can have different byte sequences. Fastify's scoped content-type parser keeps
 the body as a string only for the webhook route. The full composition root shows
 the parser, security headers, error mapping, and privacy-safe logging policy.
+
+## 8.2 Step 2 — Preserve raw bytes in Fastify
 
 **Listing — `apps/api/src/app.ts` (complete file)**
 
@@ -2782,7 +3030,7 @@ routes keep normal parsing and Zod validation. `bodyLimit` caps memory before
 HMAC processing. The route passes raw text and header values directly to the
 watcher.
 
-## 8.2 Drive invoice state transactionally
+## 8.3 Step 3 — Drive invoice state transactionally
 
 **Listing — `apps/api/src/invoices.ts` (complete file)**
 
@@ -2979,7 +3227,13 @@ adding a linkage or revocation tag. A post-issuance reorg is recorded as an
 aggregate audit event and becomes merchant risk. Choose confirmation depth and
 invoice value accordingly.
 
-## 8.3 Test byte identity and receiver policy
+Write the transition handler in this order: lock invoice, compare exact amount,
+deduplicate event, handle reorg, reject terminal or expired state, derive the
+new confirmation state, update the invoice, and create authorization only for
+the confirmed state. Putting deduplication after updates would apply a replay
+twice; putting authorization outside the transaction would create a crash gap.
+
+## 8.4 Step 4 — Test byte identity and receiver policy
 
 **Listing — `tests/scanner.test.ts` (complete file)**
 
@@ -3079,21 +3333,35 @@ expensive JSON processing, but do not key permanent customer state by source
 IP. Treat scanner timeouts as unknown state and poll `getInvoice`; do not mark a
 payment absent merely because a webhook was delayed.
 
-### Checkpoint
+### Part III checkpoint
 
 The payment pipeline now accepts exact, authenticated scanner bytes and maps
 them through an idempotent PostgreSQL state machine. Reorganizations revoke
 unused authorization while preserving the unlinkability of credentials already
 issued.
 
+Part IV replaces in-memory clients with durable CLI and browser custody. No
+client will receive a token until this payment state machine reaches confirmed.
+
+# Part IV — Durable clients and private transport
+
+Move credentials into encrypted CLI and browser stores, then add a fail-closed Tor transport for the Node client.
+
 # 9 The Encrypted Node.js CLI & Secret Storage
+
+> **Part IV — Clients · Build checkpoint 1 of 3**
+
+The protocol works with an in-memory store. You will now make it survive process
+exit without exposing bearer tokens. Build key acquisition, authenticated file
+encryption, atomic replacement, and inter-process exclusion before adding CLI
+commands.
 
 A Privacy Pass token is a bearer credential. Encrypting it on disk protects
 against casual disclosure and offline file theft; it does not stop malware
 running as the user from asking the CLI to decrypt or spend it. The vault must
 also serialize commands so two processes cannot choose the same local token.
 
-## 9.1 Build an authenticated file format
+## 9.1 Step 1 — Build an authenticated file format
 
 **Listing — `cli/src/vault.ts` (complete file)**
 
@@ -3302,6 +3570,17 @@ export class FileVault implements CredentialStore {
 }
 ```
 
+Implement `FileVault` from reads to writes to locking:
+
+1. Make `load()` return `emptyState()` only for `ENOENT`; every other file error
+   must surface.
+2. Parse the versioned envelope, derive 32 bytes with scrypt, set the same AAD,
+   install the GCM tag, and authenticate during `final()`.
+3. In `save()`, generate a new salt and IV every time, encrypt, create a private
+   temporary file, and rename only after the write finishes.
+4. Add `exclusive()` around SDK read-modify-write operations using an
+   exclusively created lock file and a `finally` cleanup.
+
 The on-disk JSON is an envelope, not plaintext state:
 
 ```text
@@ -3326,7 +3605,7 @@ command remains active. Host crashes can leave the lock; PID-bearing locks with
 careful liveness checks can improve recovery without silently breaking mutual
 exclusion.
 
-## 9.2 Get the passphrase without inventing a plaintext key file
+## 9.2 Step 2 — Acquire the passphrase safely
 
 The resolver checks an explicitly supplied environment secret, then Linux
 Secret Service via `secret-tool`, then an interactive non-echoed passphrase.
@@ -3339,7 +3618,7 @@ deployments. JavaScript strings and Buffers cannot be reliably zeroized because
 runtimes copy and move memory. Keep decrypted state lifetime short and avoid
 printing it. The `inspect` command reports counts and labels, never token values.
 
-## 9.3 Wire commands to one SDK
+## 9.3 Step 3 — Wire commands to one SDK
 
 **Listing — `cli/src/main.ts` (complete file)**
 
@@ -3518,13 +3797,18 @@ issuance, and spending stay in `@blindpass/client`, shared with the browser.
 `buy --no-wait` supports an asynchronous payment; `issue <invoice>` resumes a
 paid invoice held in the encrypted vault.
 
+Add commands in dependency order: `offers` needs no vault, `buy` creates and
+stores an invoice, `invoices` and `issue` resume it, `balance` reads local
+state, and `search` consumes one credential. Keep output at the domain level;
+never add a debug option that prints capabilities or raw credentials.
+
 The CLI removes a credential from durable state before sending redemption. If
 the response is unambiguously a validation or temporary service failure, it can
 restore the token. A connection loss after the server commits is ambiguous, so
 automatic replay would reveal a spent credential and cannot guarantee recovery.
 The conservative policy may sacrifice a credit rather than hide ambiguity.
 
-## 9.4 Test confidentiality and permissions
+## 9.4 Step 4 — Test confidentiality and permissions
 
 **Listing — `tests/vault.test.ts` (complete file)**
 
@@ -3578,7 +3862,7 @@ BLINDPASS_VAULT_PASSWORD='a-long-local-lab-passphrase' pnpm blindpass issue <inv
 BLINDPASS_VAULT_PASSWORD='a-long-local-lab-passphrase' pnpm blindpass balance
 ```
 
-### Checkpoint
+### Build checkpoint
 
 The CLI now treats credentials as valuable bearer assets: encrypted at rest,
 authenticated against tampering, saved atomically, and protected from local
@@ -3586,13 +3870,19 @@ multi-process double selection.
 
 # 10 The Web Client & Hardware-Bound Web Crypto
 
+> **Part IV — Clients · Build checkpoint 2 of 3**
+
+You will implement the same `CredentialStore` interface for the browser, then
+attach it to purchase and redemption pages. Keeping the SDK unchanged is the
+test that custody and protocol logic are properly separated.
+
 Browsers cannot use the operating-system keyring directly. They can persist a
 non-extractable `CryptoKey` in IndexedDB and use it for AES-GCM operations. This
 keeps raw key bytes out of application JavaScript, but “non-extractable” is not
 the same as hardware-bound: the browser may store the key in software, and any
 malicious same-origin script can ask Web Crypto to use it.
 
-## 10.1 Store a non-extractable key and ciphertext
+## 10.1 Step 1 — Create the IndexedDB primitives
 
 **Listing — `apps/web/lib/vault.ts` (complete file)**
 
@@ -3697,6 +3987,13 @@ export function browserClient() {
 }
 ```
 
+Build from the storage adapter upward. `openVault` owns schema creation. Small
+`get` and `set` helpers open one transaction, settle on request or transaction
+events, and close the database. `BrowserVault.key()` creates one
+non-extractable AES key. `load` and `save` use it with fresh IVs and identical
+AAD. `exclusive` wraps the SDK operation with a named Web Lock. Only after those
+pieces work should `browserClient()` cache the SDK instance.
+
 `generateKey(..., false, ...)` sets `extractable` to false. IndexedDB stores the
 structured-cloned `CryptoKey` and a separate `{iv, data}` ciphertext record.
 Every save uses a new 96-bit IV and constant associated data. Reusing a GCM IV
@@ -3713,7 +4010,7 @@ there is no account recovery. Copying only the ciphertext does not create a
 backup. A production recovery feature needs an explicit user-controlled export
 protocol and a new threat analysis.
 
-## 10.2 Build purchase as an observable state machine
+## 10.2 Step 2 — Build purchase as an observable state machine
 
 The purchase page never asks for an email or password. It creates a signed
 invoice, displays a payment URI, polls by secret capability, and invokes local
@@ -4182,11 +4479,17 @@ UI state is not authoritative. PostgreSQL owns invoice state; the page's
 ten credentials. A reload resumes from the invoice capability encrypted in the
 vault.
 
+Read the component by event path rather than JSX order. The initial action calls
+`buy`; the query polls `invoice(capability)`; development simulation emits
+confirmation states; the receive action calls `issue` with a progress callback;
+the ready branch links to search. Presentation derives from `latest.status`, so
+the page can reload without inventing payment state.
+
 The screen intentionally warns against immediate redemption. Cryptographic
 unlinkability does not erase a distinctive `pay -> issue -> redeem` timing
 sequence.
 
-## 10.3 Spend from the device
+## 10.3 Step 3 — Spend from the device
 
 **Listing — `apps/web/app/app/search/page.tsx` (complete file)**
 
@@ -4340,6 +4643,11 @@ balance queries after each attempt and says plainly that the service receives
 the query. Privacy-preserving authorization is not private information
 retrieval.
 
+Keep the submit handler small: set busy state, call the SDK once, record the
+typed result or error, then invalidate wallet queries in `finally`. Token
+selection, authorization syntax, and ambiguous-result policy do not belong in
+React state.
+
 React's rendering boundary introduces a major threat: the merchant serves the
 JavaScript that holds credentials. A compromised deployment or injected
 same-origin script can call `browserClient().search`, enumerate UI state, or
@@ -4348,7 +4656,7 @@ controls, reproducible builds, and a separately distributed client reduce this
 risk. No IndexedDB encryption scheme can protect against code authorized to use
 its key.
 
-## 10.4 Exercise the browser
+## 10.4 Step 4 — Exercise the browser
 
 ```bash
 pnpm build
@@ -4362,7 +4670,7 @@ instance. Browser tests should assert visible simulation labels and balance
 changes, while cryptographic byte properties remain in Vitest where failures
 are easier to diagnose.
 
-### Checkpoint
+### Build checkpoint
 
 The browser client now has encrypted origin-local custody, cross-tab exclusion,
 and honest recovery semantics. It improves storage hygiene without claiming a
@@ -4370,12 +4678,18 @@ hardware guarantee the Web Crypto API does not provide.
 
 # 11 Network Privacy & Routing Through Tor
 
+> **Part IV — Clients · Build checkpoint 3 of 3**
+
+The CLI currently uses the direct SDK transport. You will add one alternative
+transport with a stronger invariant: it is returned only after a Tor exit check
+succeeds, and it contains no direct-network fallback branch.
+
 If the same source IP buys and immediately redeems a token, the issuer does not
 need to break the VOPRF. Network metadata supplies the correlation. Tor adds a
 separate routing layer for the Node CLI, provided every destination lookup and
 request stays inside the SOCKS tunnel.
 
-## 11.1 Require remote DNS resolution
+## 11.1 Step 1 — Validate proxy policy
 
 The `socks5h` scheme means the proxy resolves hostnames. Plain `socks5` may
 resolve DNS locally, exposing destinations to the local resolver and network.
@@ -4460,6 +4774,13 @@ export async function torTransport(
 }
 ```
 
+Build `torTransport` in three gates. Parse and require `socks5h:` before creating
+an agent. Use that agent for the Tor exit check and destroy it on failure. Return
+a closure that reuses the agent for application requests, rejects loopback
+destinations and redirects, and maps every network error to
+`TOR_NOT_AVAILABLE`. Do not accept an optional direct transport in this module;
+making fallback impossible is simpler than remembering to disable it.
+
 Before returning a transport, the function requests the Tor Project's exit
 check through the proxy and requires `IsTor: true`. This is a reachability and
 routing assertion at that moment, not a guarantee of anonymity. The check
@@ -4486,7 +4807,7 @@ CLI's loopback interface. For development, use direct mode. To test end to end
 through Tor, expose a deliberate HTTPS staging host or onion service and set
 `BLINDPASS_API_URL` accordingly.
 
-## 11.2 Fail closed under attack
+## 11.2 Step 2 — Fail closed under attack
 
 **Listing — `tests/tor.test.ts` (complete file)**
 
@@ -4530,7 +4851,7 @@ BLINDPASS_API_URL=https://staging.example pnpm blindpass search --tor "privacy p
 Do not point the final command at a host you do not control while testing real
 credentials.
 
-## 11.3 Know what Tor does not normalize
+## 11.3 Step 3 — Know what Tor does not normalize
 
 Tor separates the destination from the source IP as observed by ordinary
 endpoints. It does not hide query contents from BlindPass, prevent application
@@ -4544,13 +4865,27 @@ keep request shapes stable. OHTTP is a future option for separating client
 network identity from an application request through a relay, but it brings key
 configuration, relay trust, replay, and padding choices of its own.
 
-### Checkpoint
+### Part IV checkpoint
 
 Tor mode now has a crisp invariant: either a verified SOCKS5h path carries the
 request or the command fails. It never silently exchanges privacy for
 availability.
 
+You now have two durable clients using one protocol SDK. Part V stops adding
+features and tries to break the assembled system.
+
+# Part V — Verification and production hardening
+
+Attack the complete composition, model its state machine, and package the same tested boundaries for operations.
+
 # 12 End-to-End Stress Testing & Formal Verification
+
+> **Part V — Assurance · Build checkpoint 1 of 2**
+
+The system is feature-complete. You will now verify it from the smallest
+abstract state machine outward: model invariants, reference vectors, concurrent
+transactions, HTTP composition, and finally the browser. Add no new production
+behavior while a verification layer is failing.
 
 No single test demonstrates unlinkability. The assurance case is layered:
 reference vectors check wire compatibility, adversarial unit tests check
@@ -4558,7 +4893,7 @@ cryptographic rejection, PostgreSQL tests check atomicity, a state model checks
 all small interleavings, stress tests search for runtime faults, and Playwright
 checks the composed product. None replaces an independent security audit.
 
-## 12.1 Model the redemption state machine
+## 12.1 Step 1 — Model the redemption state machine
 
 A small TLA+ specification separates the state-machine claim from TypeScript
 and PostgreSQL syntax. `Reserve(t)` is one atomic action, matching the unique
@@ -4656,6 +4991,14 @@ INVARIANTS
   IssuanceRequiresPayment
 ```
 
+Build the model the way you built the implementation. `Init` gives every token
+the `fresh` state. `Reserve(t)` is enabled only after issuance and changes one
+map entry atomically. `Commit(t)` moves that entry to `spent` and increments a
+ghost success counter used only for verification. `Rollback(t)` returns a
+reservation to `fresh`. The invariants then state the properties rather than
+the mechanism: at most one success, success implies spent, and redemption state
+requires paid issuance.
+
 TLC enumerates all reachable interleavings for three tokens and checks that no
 token obtains more than one committed success, a success is spent, reservation
 requires issuance, and issuance requires payment.
@@ -4673,7 +5016,7 @@ of PostgreSQL, the TypeScript driver, or VOPRF security. Its value is exhaustive
 interleaving exploration within the model. If the implementation stops making
 reservation atomic, the model no longer describes it.
 
-## 12.2 Stress real cryptography and PostgreSQL
+## 12.2 Step 2 — Stress real cryptography and PostgreSQL
 
 **Listing — `tests/stress.ts` (complete file)**
 
@@ -4760,6 +5103,10 @@ PostgreSQL reservations. Each worker gets an isolated schema so token hashes
 cannot collide across fixtures. Ten thousand cycles are a reliability gate,
 not a statistical proof of cryptographic security.
 
+Start with `STRESS_TOKENS=100` while changing code. Raise it only after focused
+tests pass. A stress failure should retain the first worker error and its phase;
+do not hide it behind aggregate throughput output.
+
 ```bash
 pnpm test:stress
 STRESS_TOKENS=100 pnpm test:stress
@@ -4768,7 +5115,7 @@ STRESS_TOKENS=100 pnpm test:stress
 Use the smaller value during development. The default gate is intentionally
 expensive and should run on known hardware in release verification.
 
-## 12.3 Compose the HTTP lifecycle
+## 12.3 Step 3 — Compose the HTTP lifecycle
 
 **Listing — `tests/integration.test.ts` (complete file)**
 
@@ -4902,6 +5249,11 @@ proof finalization, and retry behavior. It proves that an unpaid invoice cannot
 issue, confirmation states advance, the identical transcript is idempotent,
 and a second batch is refused. The remaining cases cover duplicate scanner
 events, reorg revocation, expiry, and capability secrecy.
+
+Follow the first test as a construction script: create an invoice, prove unpaid
+issuance fails, emit zero/one/three-confirmation events, issue one batch,
+finalize it, retry the identical body, attempt a different batch, and inspect
+the authorization row. Every assertion advances exactly one state transition.
 
 The browser suite then drives real UI and IndexedDB:
 
@@ -5038,7 +5390,7 @@ pnpm build
 pnpm test:e2e
 ```
 
-## 12.4 Audit Alice and Bob honestly
+## 12.4 Step 4 — Audit Alice and Bob honestly
 
 The demo creates separate in-memory stores for Alice and Bob, buys identical
 offers, issues under the same epoch configuration, shuffles redemptions, and
@@ -5053,7 +5405,7 @@ query choice, a compromised client, or a partitioned first-use configuration
 can reveal the answer. Label the UI's 50% result as a two-candidate model, not a
 measured real-world anonymity probability.
 
-## 12.5 Build an attack matrix
+## 12.5 Step 5 — Build an attack matrix
 
 | Attack                    | Expected observation       | Defense under test                |
 | ------------------------- | -------------------------- | --------------------------------- |
@@ -5069,7 +5421,7 @@ measured real-world anonymity probability.
 Every row should name the layer that owns the invariant. A browser test cannot
 diagnose point serialization, and a crypto unit test cannot expose a proxy log.
 
-### Checkpoint
+### Build checkpoint
 
 You now have executable evidence from algebraic vectors to a model-checked
 state machine and full browser flow, with the limits of each form stated
@@ -5077,13 +5429,20 @@ explicitly.
 
 # 13 Operational Security & Threat Realities
 
+> **Part V — Assurance · Build checkpoint 2 of 2**
+
+This final chapter packages the exact system you tested. You will make startup
+reject incomplete production configuration, build non-root images, align logs
+with the privacy model, and write the release gate operators must run before
+accepting value.
+
 Production is where clean protocol boundaries meet secret rotation, reverse
 proxies, backups, timeouts, logs, and incident response. BlindPass fails startup
 when production secrets are absent, disables mock payments and development
 routes, and runs application containers as a non-root user. Those are starting
 controls, not a complete deployment.
 
-## 13.1 Validate configuration before listening
+## 13.1 Step 1 — Validate configuration before listening
 
 **Listing — `apps/api/src/config.ts` (complete file)**
 
@@ -5183,13 +5542,19 @@ for (const signal of ["SIGINT", "SIGTERM"] as const)
   });
 ```
 
+Build startup as a straight line: parse environment, assert production
+requirements, connect dependencies, create the Fastify app, listen, and install
+signal handlers. Avoid starting a listener before key and database validation;
+otherwise an orchestrator may route traffic to a process that can only fail
+requests.
+
 In production, set PostgreSQL `statement_timeout`, `lock_timeout`, TLS, least
 privilege, connection limits, and backup encryption explicitly. The local
 defaults optimize the lab. Graceful shutdown stops accepting connections and
 closes Fastify; orchestration must allow enough termination time for in-flight
 transactions to finish or roll back.
 
-## 13.2 Containerize the same boundaries
+## 13.2 Step 2 — Containerize the same boundaries
 
 **Listing — `docker-compose.yml` (complete file)**
 
@@ -5286,6 +5651,11 @@ uses a pinned pnpm version and a non-root Node user. The default database
 password and mock payment mode make this a development composition, never a
 production manifest.
 
+Build the image in two application targets from one dependency layer. The API
+target runs migrations before `exec` replaces the shell with the server. The
+web target performs a production Next.js build during image creation. Run both
+as the `node` user so filesystem mistakes do not become root writes.
+
 For production, use immutable image digests, separate API and web identities,
 read-only root filesystems where possible, secret mounts rather than image
 layers, network policy around PostgreSQL and the scanner, TLS at every remote
@@ -5293,7 +5663,7 @@ hop, health/readiness separation, and tested encrypted backups. Keep VOPRF and
 Ed25519 secrets out of ordinary database snapshots unless the backup design
 explicitly protects them.
 
-## 13.3 Make logging a privacy control
+## 13.3 Step 3 — Make logging a privacy control
 
 Fastify request logging is disabled because default logs include method, path,
 IP, and timing; invoice capabilities can appear in paths. Application errors log
@@ -5398,7 +5768,7 @@ it("requires production secrets, forbids mock payments and omits debug routes", 
 });
 ```
 
-## 13.4 Plan key rotation and incidents
+## 13.4 Step 4 — Plan key rotation and incidents
 
 Back up the stable Ed25519 identity and VOPRF keys still needed for grace-period
 verification. Test restoration before rotation day. Publish and monitor one
@@ -5412,7 +5782,7 @@ practical, avoid copies, disable core dumps for key-bearing processes, minimize
 heap snapshots, and rely on process isolation and short lifetimes. Do not claim
 that assigning `undefined` erases secret bytes.
 
-## 13.5 Release checklist
+## 13.5 Step 5 — Run the release checklist
 
 ```bash
 pnpm lint
@@ -5431,7 +5801,7 @@ backup restoration, rate limiting, proxy log redaction, clock synchronization,
 TLS configuration, scanner outage recovery, and the exact refund policy for a
 paid invoice whose client loses blinding state.
 
-## 13.6 Future boundary: OHTTP
+## 13.6 Step 6 — Mark the next boundary: OHTTP
 
 Oblivious HTTP can place a relay between client and gateway so the relay sees
 the client network and the gateway sees the encrypted application request, but
@@ -5446,11 +5816,17 @@ link; PostgreSQL enforces one spend; encrypted local custody protects stored
 bearers; Tor can reduce direct source-IP exposure. The remaining metadata and
 endpoint risks are engineering work, not footnotes.
 
-### Final exercise
+### Part V and book checkpoint
 
 Run the full local flow, capture the payments table and redemptions table, and
 attempt to join them without using timing or network data. Then enable request
 timing logs in an isolated lab and repeat. The contrast shows why privacy is a
 system property: the cryptography removes one link, while operations decide
 whether another link takes its place.
+
+The finished repository should now move through five observable states of
+confidence: it type-checks, narrow boundary tests pass, PostgreSQL concurrency
+tests pass, the optimized web build succeeds, and the full browser flow works.
+If a later change cannot identify which checkpoint it preserves, it is too
+large to review as one privacy-sensitive change.
 

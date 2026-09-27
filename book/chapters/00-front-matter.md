@@ -18,6 +18,39 @@ and is expanded from the same file that the tests execute. Commands run from
 the repository root on Node.js 22 or newer. PostgreSQL examples target version 17. Development payment events are conspicuously simulated; real Privacy Pass
 cryptography is never mocked.
 
+### How to build with this book
+
+This edition is organized as five construction parts. Do not read a chapter as
+an isolated survey. Begin each part with the previous checkpoint running, make
+the described files, and run the narrow test before moving on. Every chapter
+uses the same rhythm:
+
+1. **State the invariant.** Write down what must remain true under failure and
+   concurrency.
+2. **Place the boundary.** Decide which package owns that invariant and what it
+   is forbidden to know.
+3. **Build in passes.** Add types first, then the smallest working path, then
+   rejection and recovery behavior.
+4. **Read the complete file.** Listings are expanded from the live workspace,
+   so imports, exports, and error branches are present.
+5. **Break it deliberately.** Run a focused test that attacks the new boundary.
+6. **Checkpoint.** Leave the repository compiling before the next chapter.
+
+The full-file listings are reference snapshots after a build step. The prose
+immediately before and after each listing tells you which block to write first,
+how data moves through it, and why each rejection branch exists. Type the code
+in that order even though the final listing appears as one complete module.
+
+### Parts and construction checkpoints
+
+| Part             | Chapters | What exists at the checkpoint                                                  |
+| ---------------- | -------- | ------------------------------------------------------------------------------ |
+| I — Foundations  | 1–3      | Strict monorepo, domain types, privacy-shaped PostgreSQL schema                |
+| II — Credentials | 4–6      | Blind issuance, atomic redemption, pinned issuer policy                        |
+| III — Payments   | 7–8      | Exact ZEC arithmetic, scanner adapter, authenticated reorg-aware events        |
+| IV — Clients     | 9–11     | Encrypted CLI and browser vaults, complete SDK flow, fail-closed Tor transport |
+| V — Assurance    | 12–13    | Model and attack suite, production build and operating controls                |
+
 ### Contents
 
 1. The Accountless Architecture

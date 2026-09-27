@@ -1,13 +1,27 @@
 # 8 Watchers, Webhooks, and Reorg Resistance
 
+> **Part III — Payments · Build checkpoint 2 of 2**
+
+You now have a watcher port and an invoice schema. This chapter implements the
+untrusted scanner adapter, plugs raw-body authentication into Fastify, and then
+moves invoice state under a row lock. Build and test each boundary separately
+before composing them.
+
 Payment webhooks cross two trust boundaries: an external scanner asserts chain
 state, and an HTTP parser wants to transform the request before authentication.
 BlindPass authenticates the exact received bytes, deduplicates events, and
 allows pre-issuance confirmation state to move backward on a reorganization.
 
-## 8.1 Authenticate raw bytes
+## 8.1 Step 1 — Implement the scanner adapter
 
 {{blindpass-include:packages/zcash/src/scanner.ts}}
+
+Construct `ScannerPaymentWatcher` in four passes. Validate constructor policy
+first: HTTPS outside explicit local hosts and a sufficiently long webhook
+secret. Add the outbound `request` helper with redirect and timeout limits.
+Implement `createInvoice` and reject transparent or wrong-network receivers.
+Finally add `webhook`, authenticating raw bytes before JSON parsing or listener
+dispatch.
 
 The bridge signs `timestamp + "." + rawBody` with HMAC-SHA-256. Verification
 rejects missing or malformed headers, timestamps more than five minutes away,
@@ -24,6 +38,8 @@ can have different byte sequences. Fastify's scoped content-type parser keeps
 the body as a string only for the webhook route. The full composition root shows
 the parser, security headers, error mapping, and privacy-safe logging policy.
 
+## 8.2 Step 2 — Preserve raw bytes in Fastify
+
 {{blindpass-include:apps/api/src/app.ts}}
 
 The parser is registered inside a Fastify encapsulation scope. Other JSON
@@ -31,7 +47,7 @@ routes keep normal parsing and Zod validation. `bodyLimit` caps memory before
 HMAC processing. The route passes raw text and header values directly to the
 watcher.
 
-## 8.2 Drive invoice state transactionally
+## 8.3 Step 3 — Drive invoice state transactionally
 
 {{blindpass-include:apps/api/src/invoices.ts}}
 
@@ -60,7 +76,13 @@ adding a linkage or revocation tag. A post-issuance reorg is recorded as an
 aggregate audit event and becomes merchant risk. Choose confirmation depth and
 invoice value accordingly.
 
-## 8.3 Test byte identity and receiver policy
+Write the transition handler in this order: lock invoice, compare exact amount,
+deduplicate event, handle reorg, reject terminal or expired state, derive the
+new confirmation state, update the invoice, and create authorization only for
+the confirmed state. Putting deduplication after updates would apply a replay
+twice; putting authorization outside the transaction would create a crash gap.
+
+## 8.4 Step 4 — Test byte identity and receiver policy
 
 {{blindpass-include:tests/scanner.test.ts}}
 
@@ -85,9 +107,12 @@ expensive JSON processing, but do not key permanent customer state by source
 IP. Treat scanner timeouts as unknown state and poll `getInvoice`; do not mark a
 payment absent merely because a webhook was delayed.
 
-### Checkpoint
+### Part III checkpoint
 
 The payment pipeline now accepts exact, authenticated scanner bytes and maps
 them through an idempotent PostgreSQL state machine. Reorganizations revoke
 unused authorization while preserving the unlinkability of credentials already
 issued.
+
+Part IV replaces in-memory clients with durable CLI and browser custody. No
+client will receive a token until this payment state machine reaches confirmed.

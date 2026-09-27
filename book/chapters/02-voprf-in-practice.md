@@ -1,12 +1,19 @@
 # 2 Oblivious Pseudorandom Functions in Practice
 
+> **Part I — Foundations · Build checkpoint 2 of 3**
+
+This chapter builds the cryptographic laboratory before application code. You
+will install the provider, pin deterministic inputs in a test, and prove the
+library produces independently known wire bytes. Chapter 4 will wrap the same
+objects in BlindPass policy.
+
 The VOPRF lets a client obtain `F_k(x)` without revealing `x` to the server and
 without letting a cheating server substitute another function unnoticed. In
 BlindPass, `x` contains the token type, a fresh nonce, a challenge digest, and
 the issuer key identifier. The final authenticator is derived from that input;
 the issuer sees only a blinded curve element during issuance.
 
-## 2.1 From hash input to blind evaluation
+## 2.1 Step 1 — Derive the blind-evaluation mental model
 
 Let `G` be the prime-order P-384 group with generator `g`, order `q`, issuer
 secret scalar `k`, and public key `K = kG`. `HashToGroup(x)` maps arbitrary
@@ -45,7 +52,7 @@ sequenceDiagram
   C->>C: verify proof; N = r^-1 Z; y = Finalize(x,N)
 ```
 
-## 2.2 Use the standardized implementation
+## 2.2 Step 2 — Install the standardized provider
 
 P-384 point decoding, hash-to-curve, scalar sampling, proof transcripts, and
 wire lengths are exactly the places where “small” custom implementations fail.
@@ -59,7 +66,14 @@ entry points import it first, so `privateVerif.Client`, `Issuer`, and token
 deserializers use the same `CryptoNoble` backend from `@cloudflare/voprf-ts`.
 No application code reaches into `@noble/curves` internals.
 
-## 2.3 Verify bytes, not just round trips
+Build this file first and keep it deliberately boring. The first import obtains
+the global VOPRF configuration point. The second obtains the reviewed Noble
+adapter. The assignment happens at module evaluation time. Any module that
+constructs a Privacy Pass client before this import risks capturing a missing or
+different provider, so `packages/privacy-pass/src/index.ts` imports
+`./provider.ts` as its first statement.
+
+## 2.3 Step 3 — Lock the wire format to a reference vector
 
 A client and server with the same bug can pass a round-trip test. Reference
 vectors instead fix the nonce, blinding scalar, public key, request bytes,
@@ -75,13 +89,20 @@ would make randomness tests meaningless. The response proof is randomized, so
 the test compares the deterministic evaluated-element prefix and then verifies
 the complete proof through finalization.
 
+Construct the test from the outside inward. Load hexadecimal vector fields as
+bytes. Freeze the nonce and scalar only for one test. Ask the public client API
+to serialize a request and compare all bytes. Ask the issuer to evaluate it and
+compare the deterministic point. Finally let the client verify the randomized
+proof and compare the final token. This order tells you whether a failure starts
+in request construction, server evaluation, or finalization.
+
 Run both vector and adversarial cryptography tests:
 
 ```bash
 pnpm exec vitest run tests/vectors.test.ts tests/crypto.test.ts
 ```
 
-## 2.4 Boundary conditions that fail closed
+## 2.4 Step 4 — Add rejection cases
 
 The curve library cannot decide application policy. BlindPass additionally
 rejects a request or response with the wrong exact length, a noncanonical
@@ -96,8 +117,14 @@ The HMAC boundary in chapter 8 uses `timingSafeEqual` because it compares a
 secret-derived authenticator. Do not add diagnostic logs for blinders, private
 keys, nonces before finalization, or raw credentials.
 
-### Checkpoint
+### Build checkpoint
 
 You should be able to derive `r^-1(k(rM)) = kM`, explain what the DLEQ proof
 prevents, and explain why a reference-vector test catches errors that a local
 client/server round trip cannot.
+
+Leave both crypto tests green before adding application encodings:
+
+```bash
+pnpm exec vitest run tests/vectors.test.ts tests/crypto.test.ts
+```

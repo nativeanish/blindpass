@@ -1,5 +1,12 @@
 # 1 The Accountless Architecture
 
+> **Part I — Foundations · Build checkpoint 1 of 3**
+
+In this chapter you will not implement authentication yet. You will first turn
+the privacy claim into repository rules that later code must satisfy. The
+deliverable is a failing-or-passing architecture test, not a diagram that can
+drift away from the code.
+
 An API key looks harmless until you draw the joins. A conventional service
 stores a customer, a payment, a key, and every request made with that key. Even
 if each table has a different identifier, foreign keys turn the database into a
@@ -11,7 +18,7 @@ that says only “the issuer created one credit for this token class.” The buy
 does not authenticate. The redeemer does not present an invoice. Ten credits
 mean ten independent random token inputs, not a balance row.
 
-## 1.1 Separate facts before choosing cryptography
+## 1.1 Step 1 — Separate facts before choosing cryptography
 
 The system has four facts and deliberately refuses to create a fifth:
 
@@ -44,7 +51,7 @@ The capability returned with an invoice is a secret reference, not an account.
 The server stores its SHA-256 digest. Anyone holding it can inspect and issue
 that invoice, so the client must protect it until issuance completes.
 
-## 1.2 State the privacy claim narrowly
+## 1.2 Step 2 — State the privacy claim narrowly
 
 Under the VOPRF assumptions and correct implementation, an issuer cannot match
 an issued request to a later valid token better than guessing among compatible
@@ -69,7 +76,7 @@ later token T                   redeem time and request contents
 B does not identify T.          Metadata may still correlate the sessions.
 ```
 
-## 1.3 Encode architectural absences as tests
+## 1.3 Step 3 — Encode architectural absences as tests
 
 Security review often focuses on code that exists. Privacy also depends on code
 that must never appear. This test scans migration and API source for identity
@@ -83,13 +90,20 @@ schema. The server-package check protects the redemption dependency direction.
 The logging check protects the application configuration. Deployment proxies
 and hosted database logs still require independent review.
 
+Build this test in three passes. First assert that the migration contains a
+`redeemed_tokens` table; this keeps a renamed or missing schema from producing a
+false pass. Second reject identity-shaped columns and invoice references from
+that table. Third read the server and API composition sources and reject payment
+imports, invoice queries, and enabled request logging. Each pass constrains a
+different layer, so a failure points to the boundary that moved.
+
 Run the chapter's executable check:
 
 ```bash
 pnpm exec vitest run tests/architecture.test.ts
 ```
 
-## 1.4 Attack the mental model
+## 1.4 Step 4 — Attack the mental model
 
 Ask what happens if a developer adds `invoice_id` to `redeemed_tokens` “for
 support.” Redemption immediately becomes linkable even though every curve
@@ -103,8 +117,11 @@ the cryptographic input, configuration policy, transport, storage, and
 operations all refuse distinguishing data. The remaining chapters implement
 that rule one boundary at a time.
 
-### Checkpoint
+### Build checkpoint
 
 You should now be able to explain why deleting the user table is necessary but
 insufficient, why a bearer token must be single-use, and why payment privacy and
 credential unlinkability are separate properties.
+
+Before continuing, keep `tests/architecture.test.ts` green. Chapter 3 will make
+its schema assertions concrete.

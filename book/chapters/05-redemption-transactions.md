@@ -1,5 +1,12 @@
 # 5 Redemption Middleware & Transactional Double-Spend Prevention
 
+> **Part II — Credentials · Build checkpoint 2 of 3**
+
+You will build redemption twice mentally: first the broken read-then-insert
+version, then the atomic unique-insert version. Only the second version belongs
+in the file. The contrast explains why the SQL statement is the synchronization
+primitive.
+
 Cryptographic verification answers “did an issuer create this token?” It does
 not answer “has somebody already spent it?” Two requests can verify the same
 token concurrently. A read-then-write implementation lets both pass:
@@ -14,11 +21,18 @@ request B: perform paid work; INSERT or fail too late
 The reservation and the protected work must share one authoritative database
 transaction.
 
-## 5.1 Let the unique constraint choose the winner
+## 5.1 Step 1 — Define the verifier boundary
 
 {{blindpass-include:packages/blindpass-server/src/index.ts}}
 
-Follow `redeem` line by line:
+Create `CreditVerifier` before the service. This small interface lets tests and
+rotated issuers participate without giving the redemption package access to
+invoice or payment services. The only required facts are a manifest and a
+method that verifies one raw token for one class.
+
+## 5.2 Step 2 — Let the unique constraint choose the winner
+
+Now follow `redeem` line by line:
 
 1. Parse one canonical RFC 9577 authorization value.
 2. Try active and grace-period issuer keys until one verifies cryptographically
@@ -54,7 +68,12 @@ an atomic selection and reservation of multiple independent tokens or a
 different credential construction; silently looping would create partial-spend
 failure modes.
 
-## 5.2 Make the protected effect transactional
+When typing the SQL, keep `ON CONFLICT DO NOTHING RETURNING token_hash` in one
+statement. Splitting it into a `SELECT` and `INSERT`, even inside the default
+`READ COMMITTED` isolation level, restores the race. The returned row is the
+proof that this transaction won.
+
+## 5.3 Step 3 — Make the protected effect transactional
 
 Reservation alone is insufficient if the paid side effect happens in another
 database or an irreversible external service. BlindPass search executes with
@@ -69,7 +88,7 @@ cap concurrent requests. A crashed connection rolls back its reservation.
 Stale `reserved` rows should therefore indicate a code path that committed
 without the final update, not a normal crash recovery mechanism.
 
-## 5.3 Prove the race at the boundary
+## 5.4 Step 4 — Prove the race at the boundary
 
 {{blindpass-include:tests/replay.test.ts}}
 
@@ -78,6 +97,11 @@ requires one fulfilled result and one protected-handler call. Nineteen requests
 must receive the stable conflict code. The second token makes the handler throw;
 the next attempt succeeds, proving that reservation rollback follows work
 rollback.
+
+Build the test in two phases. Use one token for twenty concurrent calls and
+count entries into the protected callback. Then use a fresh token for rollback:
+throw from the callback once and redeem again. These phases distinguish mutual
+exclusion from failure recovery.
 
 Run it against PostgreSQL rather than an in-memory imitation:
 
@@ -95,7 +119,7 @@ from a valid issuer but another class fails before insertion. A replay after
 epoch rotation still reaches the correct grace-period verifier and the same
 epoch-scoped primary key.
 
-### Checkpoint
+### Build checkpoint
 
 The database is now part of the authorization proof. No API replica can spend a
 token until PostgreSQL grants it the unique reservation, and no reservation
