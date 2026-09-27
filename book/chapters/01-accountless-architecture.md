@@ -2,6 +2,12 @@
 
 > **Part I — Foundations · Build checkpoint 1 of 3**
 
+*In this chapter*
+- Separate facts before choosing cryptography
+- State the privacy claim narrowly
+- Encode architectural absences as tests
+- Attack the mental model
+
 In this chapter you will not implement authentication yet. You will first turn
 the privacy claim into repository rules that later code must satisfy. The
 deliverable is a failing-or-passing architecture test, not a diagram that can
@@ -34,17 +40,33 @@ alone does not remove it: if the issuer sees the unblinded token during
 issuance, it can write the join elsewhere. Blind evaluation removes that direct
 cryptographic observation.
 
-```mermaid
-flowchart LR
-  W[Shielded wallet] -->|fixed 0.01 ZEC| S[Scanner boundary]
-  S -->|authenticated event| I[(Invoices)]
-  C[Client] -->|secret capability + 10 blinded requests| U[Issuer]
-  I -->|one authorization| U
-  U -->|10 evaluated elements + DLEQ proofs| C
-  C -->|unblind and verify locally| V[(Encrypted vault)]
-  V -->|one RFC 9577 authorization| R[Resource]
-  R -->|hash and reserve| D[(Redeemed token hashes)]
-  D -. no foreign key .- I
+```text
+┌─────────────────┐ fixed 0.01 ZEC ┌──────────────────┐
+│ Shielded wallet │───────────────>│ Scanner boundary │
+└─────────────────┘                └──────────────────┘
+                                            │ authenticated event
+                                            v
+                                   ┌──────────────────┐
+                                   │ Invoices (DB)    │
+                                   └──────────────────┘
+                                            │ one authorization
+┌─────────────────┐ secret cap. +           v
+│ Client          │ 10 blinded reqs┌──────────────────┐
+│                 │───────────────>│ Issuer           │
+│                 │<───────────────│                  │
+└─────────────────┘ 10 eval + DLEQ └──────────────────┘
+         │ unblind locally
+         v
+┌─────────────────┐ RFC 9577 auth  ┌──────────────────┐
+│ Encrypted vault │───────────────>│ Resource         │
+└─────────────────┘                └──────────────────┘
+                                            │ hash and reserve
+                                            v
+                                   ┌────────────────────────┐
+                                   │ Redeemed token hashes  │
+                                   └────────────────────────┘
+                                            .
+                                   no foreign key to Invoices
 ```
 
 The capability returned with an invoice is a secret reference, not an account.
@@ -66,15 +88,16 @@ class, count, or expiry. Chapter 6 makes those values client policy rather than
 merchant choice. A global passive observer can correlate bursts at both ends;
 this design does not defeat that observer.
 
-```text
-Cryptographic transcript        Network/behavioral transcript
-------------------------        -----------------------------
-blinded request B               source IP and TLS fingerprint
-evaluated response Z            issue time and byte count
-later token T                   redeem time and request contents
-
-B does not identify T.          Metadata may still correlate the sessions.
-```
+> **🔒 SECURITY NOTE: Cryptographic vs Network Transcript**
+>
+> ```text
+> Cryptographic transcript        Network/behavioral transcript
+> ------------------------        -----------------------------
+> blinded request B               source IP and TLS fingerprint
+> evaluated response Z            issue time and byte count
+> later token T                   redeem time and request contents
+> ```
+> B does not identify T. Metadata may still correlate the sessions.
 
 ## 1.3 Step 3 — Encode architectural absences as tests
 
@@ -83,7 +106,59 @@ that must never appear. This test scans migration and API source for identity
 columns, invoice joins in redemption, and request logging. It is not a proof,
 but it turns accidental architectural drift into a failing build.
 
-{{blindpass-include:tests/architecture.test.ts}}
+```typescript
+// File: tests/architecture.test.ts
+import { readFile } from "node:fs/promises";
+import { it, expect } from "vitest";
+
+it("never joins invoice data in redemption and stores no raw token or identity fields", async () => {
+  const schema = await readFile(
+    new URL("../infra/migrations/001_initial.sql", import.meta.url),
+    "utf8",
+  ); // <1>
+
+  const table = schema.match(
+    /CREATE TABLE IF NOT EXISTS redeemed_tokens \((.*?)\);/s,
+  )?.[1]; // <2>
+  expect(table).toBeDefined();
+
+  for (const forbidden of [
+    "invoice_id",
+    "user_id",
+    "client_id",
+    "query",
+    "address",
+    "raw_token",
+  ])
+    expect(table).not.toContain(forbidden); // <3>
+
+  const source = await readFile(
+    new URL("../packages/blindpass-server/src/index.ts", import.meta.url),
+    "utf8",
+  ); // <4>
+
+  expect(source).not.toMatch(/(?:FROM|JOIN|UPDATE)\s+invoices/i); // <5>
+  expect(source).not.toContain("issuance_authorizations"); // <6>
+});
+```
+
+> **<1>** Read the migration SQL file to get the exact schema.
+>
+> **<2>** Extract the redeemed_tokens CREATE TABLE block.
+>
+> **<3>** Assert that no identity-shaped columns exist in the redemption table.
+>
+> **<4>** Read the server package source code.
+>
+> **<5>** Assert the redemption module never queries invoices.
+>
+> **<6>** Assert no request logging configuration.
+
+> **▶ Try It Out**
+> ```bash
+> pnpm exec vitest run tests/architecture.test.ts
+> ```
+> The tests should pass, confirming that no identity columns or invoice joins are present in the architecture.
 
 Read the assertions as boundary tests. The `redeemed_tokens` check protects the
 schema. The server-package check protects the redemption dependency direction.
@@ -97,13 +172,11 @@ that table. Third read the server and API composition sources and reject payment
 imports, invoice queries, and enabled request logging. Each pass constrains a
 different layer, so a failure points to the boundary that moved.
 
-Run the chapter's executable check:
-
-```bash
-pnpm exec vitest run tests/architecture.test.ts
-```
-
 ## 1.4 Step 4 — Attack the mental model
+
+> **⚠ PITFALL: Linkable Redemptions**
+>
+> Adding invoice_id to redeemed_tokens makes redemption linkable even with perfect VOPRF implementation.
 
 Ask what happens if a developer adds `invoice_id` to `redeemed_tokens` “for
 support.” Redemption immediately becomes linkable even though every curve
