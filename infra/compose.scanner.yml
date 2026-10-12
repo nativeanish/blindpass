@@ -1,0 +1,24 @@
+# Local scanner-backed workspaces, each with its own database and issuer keys.
+# docker compose --env-file .env.devnet -f docker-compose.yml -f infra/compose.scanner.yml up --build -d
+name: ${BLINDPASS_NETWORK_PROJECT:?Set the network project from .env.devnet or .env.mainnet}
+services:
+  postgres:
+    ports: !override ["127.0.0.1:${POSTGRES_PORT:?Set POSTGRES_PORT}:5432"]
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a database password}
+  api:
+    ports:
+      !override ["127.0.0.1:${BLINDPASS_API_PORT:?Set BLINDPASS_API_PORT}:3001"]
+    environment:
+      DATABASE_URL: postgres://blindpass:${POSTGRES_PASSWORD:?Set a database password}@postgres:5432/blindpass
+      ISSUER_ORIGIN: ${ISSUER_ORIGIN:?Set the network workspace hostname and port}
+      ZCASH_PAYMENT_MODE: scanner
+      ZCASH_NETWORK: ${ZCASH_NETWORK:?Set testnet or mainnet}
+      ZCASH_SCANNER_URL: ${ZCASH_SCANNER_URL:?Configure a real Zcash scanner bridge URL}
+      ZCASH_SCANNER_API_KEY: ${ZCASH_SCANNER_API_KEY:?Configure the scanner API credential}
+      ZCASH_WEBHOOK_SECRET: ${ZCASH_WEBHOOK_SECRET:?Configure the matching scanner webhook secret}
+      ZCASH_CONFIRMATIONS: ${ZCASH_CONFIRMATIONS:-3}
+      BLINDPASS_ALLOW_MAINNET: ${BLINDPASS_ALLOW_MAINNET:-false}
+  web:
+    ports:
+      !override ["127.0.0.1:${BLINDPASS_WEB_PORT:?Set BLINDPASS_WEB_PORT}:3000"]

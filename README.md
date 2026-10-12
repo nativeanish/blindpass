@@ -2,7 +2,15 @@
 
 **Pay privately. Use privately.**
 
-Purchase digital access with shielded ZEC and redeem it later using unlinkable single-use credentials. BlindPass is a working, accountless reference application with a Next.js product interface, Fastify API, PostgreSQL database, encrypted CLI, real Privacy Pass cryptography, and a judge-ready live demo.
+Purchase digital access with shielded ZEC and redeem it later using unlinkable single-use credentials. BlindPass is an accountless private-search service with a Next.js product interface, Fastify API, PostgreSQL database, encrypted CLI, real Privacy Pass cryptography, recoverable purchases, encrypted wallet backups, an operator dashboard, and a separate production deployment.
+
+New to the project? Read [BlindPass explained: product, usage, and frontend guide](docs/blindpass-guide.md) for a plain-language walkthrough of the application, every screen, and the difference between local simulation and a real service.
+
+## Service deployment
+
+For a Docker-only installation, follow the [complete Docker deployment guide](docs/docker-deployment.md). It covers local preview, production HTTPS, Docker-based key generation, configuration, backups and restore, upgrades, registries, and managed container platforms. Start a new production configuration with `./scripts/deploy.sh init`.
+
+For a public service, follow [the production launch runbook](docs/production-launch.md). It covers a real scanner, HTTPS deployment, key provisioning, monitoring, and backup recovery. See [release verification](docs/production-verification.md) for the checks performed. A live Zcash scanner, domain, operator support, and testnet validation are still external requirements.
 
 ## What it is — and what it is not
 
@@ -22,7 +30,7 @@ This is **not total internet anonymity**. TLS fingerprints, browser fingerprints
 
 ## Quickstart
 
-Requires Node.js 22 or later (24 tested), pnpm 9.10+, and Docker Compose.
+Requires Node.js 22 or later (24 tested), pnpm 9.10+, and Docker Compose. Use pnpm: `pnpm-lock.yaml` is the single supported lockfile.
 
 ```bash
 pnpm install
@@ -65,6 +73,10 @@ Routes:
 | `/app` | Encrypted local wallet overview |
 | `/app/buy` | Signed invoice, payment states and real issuance |
 | `/app/search` | Fixed-cost local technical search |
+| `/app/purchases` | Resume payments and recover interrupted issuance |
+| `/app/wallet` | Credit expiry, encrypted backup and restore |
+| `/app/help` | Service details, support, and recovery guidance |
+| `/operator` | Authenticated aggregate service operations |
 | `/demo` | Actual two-client protocol and attack demonstration |
 | `/demo/privacy` | Transcript comparison, side channels and architecture |
 | `/admin` | Development-only merchant datasets and aggregate metrics |
@@ -126,7 +138,7 @@ pnpm blindpass demo
 
 The CLI vault is `~/.blindpass/credentials.db`, encrypted with AES-256-GCM and scrypt key derivation, with mode 0600 files in a 0700 directory. Linux `secret-tool` / Secret Service is preferred. Otherwise enter a strong passphrase interactively or set `BLINDPASS_VAULT_PASSWORD` through your secret manager. Do not commit it. There is no plaintext key-file fallback. `BLINDPASS_HOME` can select an isolated vault.
 
-The browser uses encrypted IndexedDB plus a non-extractable Web Crypto key. The key and ciphertext are origin-local; malicious same-origin scripts and a compromised device remain capable of spending credits. Clearing site data deletes them. There is no account-based recovery.
+The browser uses encrypted IndexedDB plus a non-extractable Web Crypto key. The key and ciphertext are origin-local; malicious same-origin scripts and a compromised device remain capable of spending credits. Encrypted passphrase backups can be downloaded from `/app/wallet` and restored into an empty wallet for the same issuer. Pending issuance is persisted before transport, so a crash can resume the same batch. Without a backup, clearing site data deletes access. There is no account-based password reset.
 
 ## Tor mode
 
@@ -192,13 +204,13 @@ Logs deliberately omit request URLs, IPs, credentials, capabilities and queries.
 ## Known limitations and production considerations
 
 - Real chain scanning and address derivation are an external integration requirement. CipherPay credentials/API compatibility have not been assumed or fabricated.
-- The bundled app demonstrates one class and one functioning 10-credit offer; the 25-credit offer is visibly unavailable.
-- Same-request issuance retries work while client blinding state is available. A browser/process crash after committed issuance can lose credits. Replacement/refund credentials are future work; no silent reissuance is allowed.
+- The service provides one shared credit class and a fixed 10-credit offer for the bundled technical search corpus.
+- Encrypted pending blinding state survives a browser/process restart. Already committed issuance can be recovered through its shared expiry using the same transcript. Losing the vault without a current backup still loses access; replacement/refund credentials are not implemented.
 - A search response lost after commitment has an ambiguous outcome. The SDK conservatively removes that credit and does not automatically replay it.
 - Reorgs before issuance revoke authorization. Reorgs after issuance are merchant risk because issued credits cannot be individually revoked without adding linkage.
-- A month-boundary restart/rotation is needed to load the next epoch. Previous keys must remain available through grace. Keep a stable signing identity and back up secrets with the database.
+- Preprovisioned keyrings rotate automatically at month boundaries. Use `pnpm keys:provision YYYY-MM` and recreate API containers before cutoff to load newly provisioned keys. Missing keys fail readiness. Retain previous keys through grace and back up secrets with the database.
 - Global configuration transparency, OHTTP, hardware-backed browser recovery and production DoS economics require further work.
-- Admin/debug endpoints exist only outside production. Production startup rejects mock payments and missing explicit secrets.
+- Development admin/debug endpoints are absent from production. `/operator` requires a separate operator key and exposes only aggregate data. Production startup rejects mock payments and incomplete configuration.
 
 See [Deployment](docs/deployment.md), [Threat model](docs/threat-model.md), [Privacy](docs/privacy.md), [Security](SECURITY.md), and the [2:45 judge script](docs/demo-script.md).
 

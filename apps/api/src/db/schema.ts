@@ -43,6 +43,7 @@ export const invoices = pgTable("invoices", {
   paymentUri: text("payment_uri").notNull(),
   status: text("status").notNull(),
   paymentTxid: text("payment_txid"),
+  scannerCheckedAt: timestamp("scanner_checked_at", { withTimezone: true }),
   detectedAt: timestamp("detected_at", { withTimezone: true }),
   confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),

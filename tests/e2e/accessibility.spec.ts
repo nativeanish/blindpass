@@ -3,7 +3,17 @@ import AxeBuilder from "@axe-core/playwright";
 test("core routes have no serious or critical accessibility violations", async ({
   page,
 }) => {
-  for (const path of ["/", "/app", "/app/buy", "/demo/privacy", "/docs"]) {
+  for (const path of [
+    "/",
+    "/app",
+    "/app/buy",
+    "/app/wallet",
+    "/app/purchases",
+    "/app/help",
+    "/operator",
+    "/demo/privacy",
+    "/docs",
+  ]) {
     await page.goto(path);
     await expect(page.locator("h1")).toBeVisible();
     const result = await new AxeBuilder({ page }).analyze();

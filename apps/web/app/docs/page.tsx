@@ -84,8 +84,8 @@ export default function Docs() {
               confirmation, then receive your private credentials. Visit the
               Live demo for replay, forgery and malicious issuer attacks.
             </p>
-            <Link href="/demo" className="text-link">
-              Open the live protocol lab <ArrowUpRight size={14} />
+            <Link href="/app" className="text-link">
+              Open your private workspace <ArrowUpRight size={14} />
             </Link>
           </section>
           <section id="integration">
@@ -205,10 +205,12 @@ export default function Docs() {
               The browser stores ciphertext and a non-extractable key in
               IndexedDB. This protects stored credential bytes from casual
               inspection, not compromised devices or malicious same-origin
-              scripts. Clearing browser data loses credits. An interrupted
-              issuance after server commitment may also lose credits if local
-              blinding state is lost. Identical in-memory request retries are
-              supported; automatic replacement credentials are not.
+              scripts. Encrypted pending issuance state allows recovery after a
+              refresh or crash. Save a passphrase-protected backup from Wallet &
+              backup before clearing browser data. Restore into an empty wallet
+              for the same issuer. Without a current backup, lost bearer credits
+              cannot be recovered; automatic replacement credentials are not
+              supported.
             </p>
           </section>
           <section id="payments">
@@ -237,7 +239,9 @@ export default function Docs() {
               policies at every proxy/CDN, rate limits appropriate to your
               privacy goals, database backups, and a manual refund policy.
               Rotate shared epoch keys with overlap through the common grace
-              period. Debug and admin routes must remain disabled.
+              period. Debug routes are disabled in production. The separate
+              operator dashboard requires its own access key and exposes
+              aggregate service data.
             </p>
             <Code title="VERIFICATION">
               {
@@ -247,7 +251,10 @@ export default function Docs() {
             <p>
               Detailed architecture, cryptography, Zcash, privacy, threat-model,
               deployment and judge-demo documents ship in the repository’s{" "}
-              <code>docs/</code> directory.
+              <code>docs/</code> directory. Start with{" "}
+              <code>docs/production-launch.md</code>
+              for the HTTPS stack, scanner reconciliation, key provisioning, and
+              recovery procedures.
             </p>
           </section>
         </article>

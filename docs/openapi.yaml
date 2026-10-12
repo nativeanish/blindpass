@@ -14,6 +14,7 @@ tags:
   - name: Credentials
   - name: Resource
   - name: Scanner
+  - name: Operations
 paths:
   /api/health:
     get:
@@ -33,6 +34,61 @@ paths:
                   environment:
                     { type: string, enum: [development, test, production] }
                   epoch: { type: string, example: "2026-09" }
+  /api/live:
+    get:
+      operationId: liveness
+      tags: [Public]
+      responses:
+        "200": { description: Process running; no database or scanner check }
+  /api/service:
+    get:
+      operationId: serviceDetails
+      tags: [Public]
+      responses:
+        "200":
+          description: Public issuer fingerprint, payment network choices, support URL and common expiry
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name: { type: string }
+                  issuer: { type: string }
+                  network: { type: string, enum: [testnet, mainnet] }
+                  paymentMode: { type: string, enum: [mock, scanner] }
+                  paymentEnvironment:
+                    { type: string, enum: [simulation, devnet, mainnet] }
+                  paymentEnvironments:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, available, url]
+                      properties:
+                        id:
+                          { type: string, enum: [simulation, devnet, mainnet] }
+                        available: { type: boolean }
+                        url:
+                          type: [string, "null"]
+                          description: Other environment's public app URL; null for current or unconfigured environments
+                  supportUrl: { type: string }
+                  creditExpiresAt: { type: string, format: date-time }
+                  issuanceEndsAt: { type: string, format: date-time }
+                  fingerprint: { type: string }
+  /api/ops/status:
+    get:
+      operationId: operatorStatus
+      tags: [Operations]
+      security: [{ OperatorKey: [] }]
+      responses:
+        "200":
+          {
+            description: Aggregate counts,
+            invoice states,
+            reconciliation status,
+            provisioned epoch names and cutoffs; no bearer credentials or customer records,
+          }
+        "401": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
   /api/offers:
     get:
       operationId: listOffers
@@ -134,6 +190,8 @@ paths:
         Requires confirmed payment. Exactly ten distinct serialized 52-byte blinded requests.
         Identical-transcript retry returns identical evaluations; another batch is refused.
         No final unblinded credential belongs in this request.
+        Persist encrypted finalization state before transport. A committed identical transcript
+        can be recovered through the epoch verification grace period after rotation.
       requestBody:
         required: true
         content:
@@ -278,6 +336,12 @@ paths:
                 blockHeight: { type: [integer, "null"], minimum: 0 }
                 confirmations: { type: integer, minimum: 0 }
                 reorg: { type: boolean, default: false }
+                observedAt:
+                  {
+                    type: string,
+                    format: date-time,
+                    description: Original authenticated observation time; optional,
+                  }
       responses:
         "200":
           description: Authenticated observation accepted
@@ -285,6 +349,10 @@ paths:
         "401": { $ref: "#/components/responses/Error" }
 components:
   securitySchemes:
+    OperatorKey:
+      type: http
+      scheme: bearer
+      description: Separate operator API key; never a customer credential
     PrivateToken:
       type: apiKey
       in: header

@@ -6,7 +6,8 @@
   "packageManager": "pnpm@9.10.0",
   "pnpm": {
     "overrides": {
-      "sjcl": "1.0.9"
+      "sjcl": "1.0.9",
+      "source-map-js": "1.2.2"
     }
   },
   "engines": {
@@ -30,7 +31,10 @@
     "typecheck": "tsc --noEmit && pnpm --filter @blindpass/web typecheck",
     "lint": "eslint .",
     "build": "pnpm --filter @blindpass/web build",
-    "start:api": "tsx apps/api/src/main.ts"
+    "start:api": "tsx apps/api/src/main.ts",
+    "keys:generate": "tsx scripts/generate-keys.ts",
+    "release:check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "keys:provision": "tsx scripts/provision-epoch.ts"
   },
   "dependencies": {
     "@cloudflare/privacypass-ts": "0.9.0",
@@ -47,7 +51,7 @@
     "drizzle-orm": "^0.45.2",
     "fastify": "^5.12.5",
     "lucide-react": "^1.47.0",
-    "next": "^16.3.5",
+    "next": "^16.3.6",
     "node-fetch": "^3.3.2",
     "postgres": "^3.4.9",
     "qrcode.react": "^4.2.0",

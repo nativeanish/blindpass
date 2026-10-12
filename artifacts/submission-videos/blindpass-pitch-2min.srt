@@ -1,0 +1,123 @@
+1
+00:00:00,635 --> 00:00:03,816
+A private payment is only one part of a private experience.
+
+2
+00:00:04,048 --> 00:00:07,049
+A service can still attach your purchase to an account, session,
+
+3
+00:00:07,121 --> 00:00:11,207
+or API key, and connect every request afterward. For people researching
+
+4
+00:00:11,217 --> 00:00:15,933
+sensitive topics, that creates a lasting activity trail. BlindPass asks: can
+
+5
+00:00:15,943 --> 00:00:19,050
+someone prove they paid without identifying their purchase every time?
+
+6
+00:00:20,646 --> 00:00:24,211
+BlindPass separates buying access from using it. A payment authorizes a
+
+7
+00:00:24,221 --> 00:00:27,924
+fixed batch of credits. Blind issuance lets the device receive valid
+
+8
+00:00:27,934 --> 00:00:32,056
+credentials without revealing the final credentials to the issuer. Later, a
+
+9
+00:00:32,066 --> 00:00:35,320
+search presents one credential. The service checks that it is valid
+
+10
+00:00:35,330 --> 00:00:39,046
+and unspent, without requiring an invoice identifier at redemption.
+
+11
+00:00:40,630 --> 00:00:43,912
+The privacy story has three distinct layers. Shielded Zcash protects payment
+
+12
+00:00:43,922 --> 00:00:47,364
+information on the public chain. Blind issuance removes the direct cryptographic
+
+13
+00:00:47,374 --> 00:00:50,772
+payment to usage link. Optional verified Tor transport in the CLI
+
+14
+00:00:50,782 --> 00:00:55,454
+reduces source network exposure. Timing, browser behavior, query contents, and compromised
+
+15
+00:00:55,464 --> 00:00:59,108
+devices can still reveal information. BlindPass does not promise total anonymity.
+
+16
+00:01:00,644 --> 00:01:04,299
+For developers, the reusable idea is simple: charge for access without
+
+17
+00:01:04,309 --> 00:01:07,880
+building a customer identity into every request. The repository includes a
+
+18
+00:01:07,890 --> 00:01:11,545
+client SDK and server redemption middleware. Private technical search is the
+
+19
+00:01:11,555 --> 00:01:15,002
+working starting point. Paid data APIs and private downloads are possible
+
+20
+00:01:15,012 --> 00:01:18,488
+future applications; they are not presented as shipped integrations or existing
+
+21
+00:01:18,498 --> 00:01:19,081
+customers.
+
+22
+00:01:20,631 --> 00:01:23,750
+The next milestones are concrete. Connect and validate a real Zcash
+
+23
+00:01:23,760 --> 00:01:27,749
+scanner on testnet, complete deployment operations, and obtain independent security review.
+
+24
+00:01:27,926 --> 00:01:31,740
+Stronger configuration transparency is also future work, especially for first use
+
+25
+00:01:31,750 --> 00:01:35,513
+trust. Today's deliverable is a working accountless search and credential system,
+
+26
+00:01:35,619 --> 00:01:39,094
+with its external payment integration requirements and limitations documented openly.
+
+27
+00:01:40,658 --> 00:01:45,488
+BlindPass demonstrates a different relationship between payment and access. A service
+
+28
+00:01:45,498 --> 00:01:48,449
+can verify that a request is paid for without asking the
+
+29
+00:01:48,459 --> 00:01:52,687
+credential to identify the purchase behind it. Explore the demo, inspect
+
+30
+00:01:52,697 --> 00:01:56,443
+the protocol, and help test the next integration. One credit proves
+
+31
+00:01:56,453 --> 00:01:59,005
+access. It never needs to say who you are.

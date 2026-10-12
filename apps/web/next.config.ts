@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 const config: NextConfig = {
   devIndicators: false,
+  poweredByHeader: false,
   logging: {
     incomingRequests: false,
     browserToTerminal: false,
@@ -17,6 +18,7 @@ const config: NextConfig = {
     const api = process.env.API_INTERNAL_URL ?? "http://127.0.0.1:3001";
     return [
       { source: "/api/:path*", destination: `${api}/api/:path*` },
+      { source: "/webhooks/:path*", destination: `${api}/webhooks/:path*` },
       {
         source: "/.well-known/:path*",
         destination: `${api}/.well-known/:path*`,

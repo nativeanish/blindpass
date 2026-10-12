@@ -10,8 +10,13 @@ export function connectDatabase(
   const sql = postgres(url, {
     max: 25,
     idle_timeout: 20,
+    connect_timeout: 10,
     onnotice: () => {},
-    connection: { search_path: schemaName },
+    connection: {
+      search_path: schemaName,
+      statement_timeout: 30000,
+      idle_in_transaction_session_timeout: 30000,
+    },
   });
   return { sql, db: drizzle(sql, { schema }) };
 }

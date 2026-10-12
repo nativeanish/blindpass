@@ -1,0 +1,15 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1920
+PlayResY: 1080
+WrapStyle: 0
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,DejaVu Sans,34,&H00F2F5EE,&H00FFFFFF,&H00060B09,&H00060B09,0,0,0,0,100,100,0,0,1,1,0,2,100,100,34,1
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.63,0:00:03.91,Default,,0,0,0,,The privacy story has three distinct layers. Shielded Zcash protects payment
+Dialogue: 0,0:00:03.92,0:00:07.36,Default,,0,0,0,,information on the public chain. Blind issuance removes the direct cryptographic
+Dialogue: 0,0:00:07.37,0:00:10.77,Default,,0,0,0,,payment to usage link. Optional verified Tor transport in the CLI
+Dialogue: 0,0:00:10.78,0:00:15.45,Default,,0,0,0,,reduces source network exposure. Timing, browser behavior, query contents, and compromised
+Dialogue: 0,0:00:15.46,0:00:19.11,Default,,0,0,0,,devices can still reveal information. BlindPass does not promise total anonymity.

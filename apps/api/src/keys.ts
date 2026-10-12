@@ -11,6 +11,7 @@ import {
   sha256,
   epochDates,
   currentEpoch,
+  verifySignature,
   type Manifest,
   type SignedManifest,
   type SignedDocument,
@@ -91,16 +92,32 @@ export async function loadKeys(database: Database) {
       signingPublicKey: signing.publicKey,
     };
   }
-  const epoch = currentEpoch();
+  const probe = await sign({ purpose: "blindpass-startup-key-check" });
   if (
+    !(await verifySignature(probe.document, probe.signature, signing.publicKey))
+  )
+    throw new Error("Merchant signing key pair does not match.");
+  const epoch = currentEpoch();
+  const keyring = JSON.parse(
+    process.env.PRIVACYPASS_ISSUER_KEYS || "{}",
+  ) as Record<string, string>;
+  if (
+    !keyring[epoch] &&
+    process.env.PRIVACYPASS_ISSUER_KEYS &&
+    config.BLINDPASS_ENV === "production"
+  )
+    throw new Error(`No provisioned issuer key for ${epoch}.`);
+  if (
+    !keyring[epoch] &&
     process.env.PRIVACYPASS_ISSUER_SECRET &&
     process.env.PRIVACYPASS_ISSUER_EPOCH !== epoch
   )
     throw new Error(
       "Explicit issuer key must name the current PRIVACYPASS_ISSUER_EPOCH.",
     );
-  const privateKey = process.env.PRIVACYPASS_ISSUER_SECRET
-    ? unb64(process.env.PRIVACYPASS_ISSUER_SECRET)
+  const activeSecret = keyring[epoch] ?? process.env.PRIVACYPASS_ISSUER_SECRET;
+  const privateKey = activeSecret
+    ? unb64(activeSecret)
     : unb64(
         (
           await developmentSecret(`issuer-${epoch}.json`, async () => ({
@@ -127,22 +144,41 @@ export async function loadKeys(database: Database) {
     signature: signed.signature,
     signingPublicKey: signing.publicKey,
   };
-  const existing =
-    await database.sql`SELECT issuer_key_id FROM issuer_epochs WHERE epoch=${epoch}`;
-  if (existing.length && existing[0].issuer_key_id !== manifest.activeKeyId)
-    throw new Error(
-      "Refusing to replace an existing common epoch key. Restore the epoch secret.",
-    );
-  await database.sql`INSERT INTO issuer_epochs(epoch,issuer_key_id,public_key,valid_from,valid_until,verification_grace_until,manifest) VALUES(${epoch},${manifest.activeKeyId},${manifest.publicKey},${manifest.validFrom},${manifest.issuanceEndsAt},${manifest.expiresAt},${JSON.stringify(signedManifest)}::jsonb) ON CONFLICT DO NOTHING`;
+  await database.sql.begin(async (tx) => {
+    // Serialize first registration as well as rotation across replicas.
+    await tx`SELECT pg_advisory_xact_lock(724862094)`;
+    const [latest] =
+      await tx`SELECT manifest FROM issuer_epochs ORDER BY valid_from DESC LIMIT 1`;
+    if (latest) {
+      const registered = latest.manifest as SignedManifest;
+      if (
+        registered.signingPublicKey !== signing.publicKey ||
+        registered.manifest.issuer !== manifest.issuer
+      )
+        throw new Error(
+          "Refusing to replace the registered merchant identity or issuer hostname.",
+        );
+    }
+    await tx`INSERT INTO issuer_epochs(epoch,issuer_key_id,public_key,valid_from,valid_until,verification_grace_until,manifest) VALUES(${epoch},${manifest.activeKeyId},${manifest.publicKey},${manifest.validFrom},${manifest.issuanceEndsAt},${manifest.expiresAt},${JSON.stringify(signedManifest)}::jsonb) ON CONFLICT DO NOTHING`;
+    const [existing] =
+      await tx`SELECT manifest FROM issuer_epochs WHERE epoch=${epoch}`;
+    if (
+      canonical((existing.manifest as SignedManifest).manifest) !==
+      canonical(manifest)
+    )
+      throw new Error(
+        "Refusing to replace an existing common epoch key or policy. Restore the epoch secret and issuer configuration.",
+      );
+  });
   const issuer = new TokenIssuer(manifest, privateKey);
   const issuers = [issuer];
   const previous =
     await database.sql`SELECT epoch,manifest FROM issuer_epochs WHERE epoch<>${epoch} AND verification_grace_until>now()`;
   const previousSecrets = JSON.parse(
-    process.env.PRIVACYPASS_PREVIOUS_KEYS ?? "{}",
+    process.env.PRIVACYPASS_PREVIOUS_KEYS || "{}",
   ) as Record<string, string>;
   for (const row of previous) {
-    let secret = previousSecrets[row.epoch];
+    let secret = previousSecrets[row.epoch] ?? keyring[row.epoch];
     if (!secret && config.BLINDPASS_ENV !== "production") {
       try {
         secret = (
@@ -160,6 +196,16 @@ export async function loadKeys(database: Database) {
         continue;
       }
     }
+    if (!secret && config.BLINDPASS_ENV === "production")
+      throw new Error(
+        `Missing verification key for unexpired epoch ${row.epoch}.`,
+      );
+    if (
+      secret &&
+      b64(generatePublicKey(Oprf.Suite.P384_SHA384, unb64(secret))) !==
+        (row.manifest as SignedManifest).manifest.publicKey
+    )
+      throw new Error(`Previous epoch key does not match ${row.epoch}.`);
     if (secret)
       issuers.push(
         new TokenIssuer(

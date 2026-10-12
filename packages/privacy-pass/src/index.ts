@@ -18,6 +18,11 @@ import {
 } from "@blindpass/shared";
 export { privateVerif, Token, TokenChallenge, TOKEN_TYPES };
 export const keyGen = privateVerif.keyGen;
+export {
+  createRecoverableBatch,
+  finalizeRecoverableBatch,
+  type RecoverableBatch,
+} from "./recovery.ts";
 export async function challengeFor(manifest: Manifest) {
   const context = unb64(
     await sha256(

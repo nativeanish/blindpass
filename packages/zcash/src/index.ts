@@ -9,6 +9,7 @@ export const PaymentEventSchema = z
     blockHeight: z.number().int().nonnegative().nullable().default(null),
     confirmations: z.number().int().nonnegative(),
     reorg: z.boolean().default(false),
+    observedAt: z.string().datetime().optional(),
   })
   .strict();
 export type PaymentEvent = z.infer<typeof PaymentEventSchema>;

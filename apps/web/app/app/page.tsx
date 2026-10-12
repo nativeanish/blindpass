@@ -20,7 +20,7 @@ export default function Dashboard() {
     queryKey: ["wallet"],
     queryFn: () => browserClient().options.store.load(),
   });
-  const { data: directory } = useQuery({
+  const { data: directory, error: configurationError } = useQuery({
     queryKey: ["configuration"],
     queryFn: () => browserClient().configuration(),
   });
@@ -43,7 +43,18 @@ export default function Dashboard() {
           Buy credits
         </Link>
       </div>
-      <ErrorNotice error={error} />
+      <ErrorNotice error={error ?? configurationError} />
+      {state && !state.lastBackupAt && state.credentials.length > 0 && (
+        <div className="notice">
+          <strong>Protect your credits with a backup.</strong>
+          <span>
+            Keep access if you lose this browser or device.{" "}
+            <Link href="/app/wallet" className="text-link">
+              Back up your wallet <ArrowUpRight size={13} />
+            </Link>
+          </span>
+        </div>
+      )}
       <div className="stats-grid">
         <div className="stat-card primary">
           <div className="stat-title">
@@ -194,8 +205,8 @@ export default function Dashboard() {
               </div>
               <div className="panel-note">
                 Encrypted on this device using a non-extractable browser key.
-                Clearing site data deletes your credits. Device compromise or
-                same-origin scripts can access the vault.
+                Save an encrypted backup before clearing site data. Device
+                compromise or same-origin scripts can access the vault.
               </div>
               <Link
                 href="/demo/privacy"

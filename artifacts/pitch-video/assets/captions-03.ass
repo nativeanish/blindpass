@@ -1,0 +1,15 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1920
+PlayResY: 1080
+WrapStyle: 0
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,DejaVu Sans,34,&H00F2F5EE,&H00FFFFFF,&H00060B09,&H00060B09,0,0,0,0,100,100,0,0,1,1,0,2,100,100,34,1
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.65,0:00:03.97,Default,,0,0,0,,Let's walk through the actual application. On the buy screen, the
+Dialogue: 0,0:00:03.98,0:00:07.41,Default,,0,0,0,,current offer is ten private searches for zero point zero one
+Dialogue: 0,0:00:07.42,0:00:10.95,Default,,0,0,0,,ZEC. There is no signup form and no customer profile to
+Dialogue: 0,0:00:10.96,0:00:15.75,Default,,0,0,0,,create. This recording uses the local simulation environment. The payment events
+Dialogue: 0,0:00:15.76,0:00:19.01,Default,,0,0,0,,are simulated; the credential cryptography is real.

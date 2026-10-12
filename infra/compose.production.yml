@@ -1,0 +1,104 @@
+# Run from the repository root with --env-file .env.production.
+name: blindpass-production
+x-logging: &bounded-logs
+  driver: local
+  options:
+    max-size: "10m"
+    max-file: "3"
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    logging: *bounded-logs
+    environment:
+      POSTGRES_USER: blindpass
+      POSTGRES_DB: blindpass
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a strong database password}
+    volumes: [production_database:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U blindpass]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [private]
+  api:
+    image: ${BLINDPASS_API_IMAGE:-blindpass-api:local}
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+      target: api
+    restart: unless-stopped
+    logging: *bounded-logs
+    init: true
+    stop_grace_period: 45s
+    env_file:
+      - ${BLINDPASS_ENV_FILE:-../.env.production}
+      - ${BLINDPASS_KEYS_FILE:-../.secrets/production.env}
+    environment:
+      NODE_ENV: production
+      BLINDPASS_ENV: production
+      ZCASH_PAYMENT_MODE: scanner
+      DATABASE_URL: postgres://blindpass:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/blindpass
+      API_PORT: 3001
+      DOTENV_CONFIG_QUIET: "true"
+    depends_on:
+      postgres: { condition: service_healthy }
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3001/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 20s
+      timeout: 12s
+      retries: 3
+      start_period: 60s
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    networks: [private, outbound]
+  web:
+    image: ${BLINDPASS_WEB_IMAGE:-blindpass-web:local}
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+      target: web
+      args:
+        NEXT_PUBLIC_BLINDPASS_FINGERPRINT: ${NEXT_PUBLIC_BLINDPASS_FINGERPRINT:?Set the public issuer fingerprint}
+    restart: unless-stopped
+    logging: *bounded-logs
+    init: true
+    environment:
+      NODE_ENV: production
+      BLINDPASS_ENV: production
+      API_INTERNAL_URL: http://api:3001
+      NEXT_TELEMETRY_DISABLED: "1"
+    depends_on:
+      api: { condition: service_healthy }
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/app').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    networks: [private]
+  edge:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    logging: *bounded-logs
+    environment:
+      ISSUER_ORIGIN: ${ISSUER_ORIGIN:?Set your public hostname}
+      ACME_EMAIL: ${ACME_EMAIL:?Set your TLS contact email}
+    ports: ["80:80", "443:443", "443:443/udp"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - production_tls:/data
+      - production_caddy:/config
+    depends_on:
+      web: { condition: service_healthy }
+    security_opt: [no-new-privileges:true]
+    networks: [private, outbound]
+networks:
+  private:
+    internal: true
+  outbound: {}
+volumes:
+  production_database:
+  production_tls:
+  production_caddy:

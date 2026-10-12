@@ -41,12 +41,12 @@ stateDiagram-v2
   WAITING_FOR_PAYMENT --> PAYMENT_CONFIRMED: already-confirmed scanner event
   PAYMENT_CONFIRMED --> CREDITS_READY: one batch issued
   WAITING_FOR_PAYMENT --> EXPIRED: deadline
-  WAITING_FOR_CONFIRMATION --> EXPIRED: deadline
+  WAITING_FOR_CONFIRMATION --> EXPIRED: issuance deadline
   PAYMENT_CONFIRMED --> PAYMENT_REORGED: before issuance
   PAYMENT_REORGED --> PAYMENT_CONFIRMED: new valid event before deadline
 ```
 
-Payment handling locks the invoice and deduplicates event IDs in a transaction. Amount comparison uses integer zatoshis, not floating point. A sufficient, confirmed observation creates one `issuance_authorizations` row. An expired invoice cannot authorize issuance, even if funds arrive late. Those funds require manual handling under the disclosed refund policy.
+Payment handling locks the invoice and deduplicates event IDs in a transaction. Amount comparison uses integer zatoshis, not floating point. A sufficient, confirmed observation creates one `issuance_authorizations` row. A payment observed on time can finish confirming after the payment deadline, provided the issuance deadline has not passed. An authenticated `observedAt` lets a delayed notification report that original observation. Payments first observed after the payment deadline without such evidence require manual handling under the disclosed refund policy.
 
 Before issuance, a reorg revokes authorization. After issuance, a reorg increments an aggregate operational event; it cannot target already unblinded credits without adding a linkage mechanism. This is merchant credit risk, mitigated by appropriate confirmation policy.
 
@@ -64,7 +64,7 @@ The response’s merchant-signed manifest is checked against the trusted configu
 
 The browser encrypts state with AES-256-GCM and persists a non-extractable key in IndexedDB. Web Locks serialize cross-tab mutations. The CLI uses AES-256-GCM with scrypt-derived keys backed by Secret Service or a user passphrase, private filesystem permissions and an exclusive lock file. Invoice capabilities are encrypted alongside local state; credentials themselves carry no invoice metadata.
 
-An identical in-memory issuance retry is possible after a transport interruption. Persisting and recovering the library’s internal blinding state is not implemented. A process crash after server commitment can therefore lose credits. The UI must not claim account recovery or automatic replacements.
+The client serializes the library's finalization state and saves it encrypted before sending the issuance request. An interrupted or committed issuance can therefore resume the identical transcript after a process restart. Browser passphrase-encrypted backups also include pending issuance, allowing recovery in an empty wallet for the same issuer. Recovery requires the saved state; losing the vault without a current backup still loses access. The UI does not promise account recovery or automatic replacement credits.
 
 ## 5. Redemption and resource execution
 
@@ -119,4 +119,4 @@ An operator can assess an **unissued** paid invoice using its capability and pay
 
 ## 8. Epoch and key lifecycle
 
-The active UTC month has a shared key persisted in `.secrets/` for development or supplied explicitly in production. The database refuses replacement of a registered epoch key. Previous epoch keys remain available through seven-day verification grace. A service restart with the next epoch key is required at the boundary. Production deployments need coordinated rotation, protected secret backups, access controls, monitoring and eventual key destruction after retention obligations end.
+The active UTC month has a shared key persisted in `.secrets/` for development or supplied explicitly in production. The database refuses replacement of a registered epoch key or merchant identity. Previous epoch keys remain available through seven-day verification grace. The API checks the calendar every five seconds and switches automatically to the next provisioned key. Provision future production keys and recreate the API to load the extended keyring before cutoff; the calendar switch then needs no restart. Missing keys fail readiness and new purchases. Production deployments need coordinated key provisioning, protected secret backups, access controls, monitoring and eventual key destruction after retention obligations end.

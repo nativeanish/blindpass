@@ -1,7 +1,16 @@
+import { createHash, timingSafeEqual } from "node:crypto";
 import Fastify, { LogController } from "fastify";
 import helmet from "@fastify/helmet";
+import rateLimit from "@fastify/rate-limit";
+import { PaymentReconciler } from "./reconciliation.js";
 import { z, ZodError } from "zod";
-import { BlindPassError, fingerprint, b64, sha256 } from "@blindpass/shared";
+import {
+  BlindPassError,
+  fingerprint,
+  b64,
+  sha256,
+  currentEpoch,
+} from "@blindpass/shared";
 import {
   MockPaymentWatcher,
   PaymentEventSchema,
@@ -13,6 +22,7 @@ import { wwwAuthenticate, keyGen } from "@blindpass/privacy-pass";
 import { connectDatabase, type Database } from "./db/connection.js";
 import { loadKeys } from "./keys.js";
 import { config, assertProductionConfig } from "./config.js";
+import { paymentEnvironments } from "./payment-environments.js";
 import { InvoiceService } from "./invoices.js";
 import { IssuanceService } from "./issuance.js";
 import { search, seedSearch } from "../../demo-service/src/search.js";
@@ -24,8 +34,32 @@ export async function createApp(
   } = {},
 ) {
   assertProductionConfig();
+  const environments = paymentEnvironments(config);
   const database = options.database ?? connectDatabase();
   const keys = await loadKeys(database);
+  let rotation: Promise<void> | undefined;
+  const rotateEpoch = () => {
+    if (rotation) return rotation;
+    if (keys.manifest.epoch === currentEpoch()) return Promise.resolve();
+    rotation = loadKeys(database)
+      .then((next) => {
+        // Redemption retains this array reference while active issuance changes.
+        const issuers = keys.issuers;
+        issuers.splice(0, issuers.length, ...next.issuers);
+        Object.assign(keys, next, { issuers });
+      })
+      .catch(() => {
+        // Readiness fails closed until the missing key/configuration is fixed.
+      })
+      .finally(() => {
+        rotation = undefined;
+      });
+    return rotation;
+  };
+  const rotationTimer = setInterval(() => {
+    void rotateEpoch();
+  }, 5000);
+  rotationTimer.unref();
   await seedSearch(database.sql);
   const watcher =
     options.watcher ??
@@ -62,8 +96,37 @@ export async function createApp(
       : false,
     logController: new LogController({ disableRequestLogging: true }),
     bodyLimit: 32768,
+    requestTimeout: 30000,
+    connectionTimeout: 35000,
+    keepAliveTimeout: 5000,
+    forceCloseConnections: "idle",
   });
   await app.register(helmet, { contentSecurityPolicy: false });
+  // Aggregate per-process budgets protect expensive operations without tracking IPs.
+  await app.register(rateLimit, {
+    global: true,
+    max: config.RATE_LIMIT_PER_MINUTE,
+    timeWindow: 60000,
+    keyGenerator: () => "service",
+    errorResponseBuilder: () =>
+      new BlindPassError(
+        "RATE_LIMITED",
+        429,
+        "The service is busy. Please try again shortly; no credit was spent.",
+      ),
+  });
+  const reconciliation =
+    watcher instanceof ScannerPaymentWatcher
+      ? new PaymentReconciler(
+          database,
+          watcher,
+          invoiceService,
+          config.RECONCILIATION_INTERVAL_MS,
+        )
+      : undefined;
+  app.addHook("onReady", async () => {
+    reconciliation?.start();
+  });
   app.addHook("onRequest", async (request, reply) => {
     reply
       .header("Cache-Control", "no-store")
@@ -81,10 +144,12 @@ export async function createApp(
       throw new BlindPassError("INVALID_REQUEST", 403, "Origin not allowed.");
   });
   app.setErrorHandler(async (error, request, reply) => {
+    const frameworkStatus = (error as { statusCode?: number }).statusCode;
     const code =
       error instanceof BlindPassError
         ? error.code
-        : error instanceof ZodError
+        : error instanceof ZodError ||
+            (frameworkStatus && frameworkStatus >= 400 && frameworkStatus < 500)
           ? "INVALID_REQUEST"
           : "SERVICE_TEMPORARILY_UNAVAILABLE";
     const status =
@@ -92,10 +157,14 @@ export async function createApp(
         ? error.status
         : error instanceof ZodError
           ? 400
-          : 503;
+          : frameworkStatus && frameworkStatus >= 400 && frameworkStatus < 500
+            ? frameworkStatus
+            : 503;
     if (["INVALID_TOKEN", "TOKEN_ALREADY_SPENT"].includes(code))
-      await database.sql`INSERT INTO audit_events(kind,count) VALUES(${code},1) ON CONFLICT(kind) DO UPDATE SET count=audit_events.count+1`;
-    if (status === 401)
+      await database.sql`INSERT INTO audit_events(kind,count) VALUES(${code},1) ON CONFLICT(kind) DO UPDATE SET count=audit_events.count+1`.catch(
+        () => {},
+      );
+    if (status === 401 && request.routeOptions.url === "/api/search")
       reply.header("WWW-Authenticate", await wwwAuthenticate(keys.manifest));
     if (status === 503) app.log.error({ code }, "Service operation failed");
     reply.code(status).send({
@@ -110,15 +179,81 @@ export async function createApp(
       },
     });
   });
-  app.get("/api/health", async () => {
-    await database.sql`SELECT 1`;
-    return {
-      status: "ok",
-      mode: config.ZCASH_PAYMENT_MODE,
-      environment: config.BLINDPASS_ENV,
-      epoch: keys.manifest.epoch,
-    };
-  });
+  app.get("/api/live", { config: { rateLimit: false } }, async () => ({
+    status: "ok",
+  }));
+  app.get("/api/service", async () => ({
+    name: "BlindPass",
+    issuer: config.ISSUER_ORIGIN,
+    network: config.ZCASH_NETWORK,
+    paymentMode: config.ZCASH_PAYMENT_MODE,
+    ...environments,
+    supportUrl: config.SUPPORT_URL,
+    creditExpiresAt: keys.manifest.expiresAt,
+    issuanceEndsAt: keys.manifest.issuanceEndsAt,
+    fingerprint: await fingerprint(keys.signingPublicKey),
+  }));
+  app.get(
+    "/api/health",
+    { config: { rateLimit: false } },
+    async (_request, reply) => {
+      await database.sql`SELECT 1`;
+      const ready = keys.manifest.epoch === currentEpoch();
+      if (!ready) reply.code(503);
+      return {
+        status: ready ? "ok" : "rotation_required",
+        reconciliation: reconciliation?.status ?? null,
+        mode: config.ZCASH_PAYMENT_MODE,
+        environment: config.BLINDPASS_ENV,
+        epoch: keys.manifest.epoch,
+      };
+    },
+  );
+  app.get(
+    "/api/ops/status",
+    {
+      config: {
+        rateLimit: { max: 30, timeWindow: 60000, groupId: "operations" },
+      },
+    },
+    async (request) => {
+      const expected = process.env.OPERATOR_API_KEY;
+      const supplied = request.headers.authorization?.replace(/^Bearer /, "");
+      if (
+        !expected ||
+        !supplied ||
+        !timingSafeEqual(
+          createHash("sha256").update(expected).digest(),
+          createHash("sha256").update(supplied).digest(),
+        )
+      )
+        throw new BlindPassError(
+          "INVALID_REQUEST",
+          401,
+          "Operator authentication required.",
+        );
+      const [totals] =
+        await database.sql`SELECT (SELECT count(*)::int FROM invoices) AS invoices, (SELECT count(*)::int FROM invoices WHERE confirmed_at IS NOT NULL) AS payments, (SELECT COALESCE(sum(issued_count),0)::int FROM issuance_authorizations) AS issued, (SELECT count(*)::int FROM redeemed_tokens WHERE status='spent') AS redeemed`;
+      return {
+        totals,
+        invoiceStates:
+          await database.sql`SELECT status,count(*)::int AS count FROM invoices GROUP BY status ORDER BY status`,
+        events:
+          await database.sql`SELECT kind,count FROM audit_events ORDER BY kind`,
+        epoch: keys.manifest.epoch,
+        issuanceEndsAt: keys.manifest.issuanceEndsAt,
+        expiresAt: keys.manifest.expiresAt,
+        network: config.ZCASH_NETWORK,
+        paymentMode: config.ZCASH_PAYMENT_MODE,
+        ready: keys.manifest.epoch === currentEpoch(),
+        reconciliation: reconciliation?.status ?? null,
+        provisionedEpochs: Object.keys(
+          JSON.parse(process.env.PRIVACYPASS_ISSUER_KEYS || "{}"),
+        ),
+        checkedAt: new Date().toISOString(),
+      };
+    },
+  );
   app.get("/api/offers", async () => database.db.query.offers.findMany());
   app.get("/api/privacy-audit", async () => {
     const [row] =
@@ -140,13 +275,25 @@ export async function createApp(
     })),
     ...keys.signedManifest,
   }));
-  app.post("/api/invoices", async (request, reply) => {
-    const input = z
-      .object({ offerId: z.literal("search-10") })
-      .strict()
-      .parse(request.body);
-    return reply.code(201).send(await invoiceService.create(input.offerId));
-  });
+  app.post(
+    "/api/invoices",
+    {
+      config: {
+        rateLimit: {
+          max: config.PURCHASE_LIMIT_PER_MINUTE,
+          timeWindow: 60000,
+          groupId: "purchases",
+        },
+      },
+    },
+    async (request, reply) => {
+      const input = z
+        .object({ offerId: z.literal("search-10") })
+        .strict()
+        .parse(request.body);
+      return reply.code(201).send(await invoiceService.create(input.offerId));
+    },
+  );
   app.get("/api/invoices/:capability", async (request) =>
     invoiceService.get(
       z.object({ capability: z.string().min(40).max(80) }).parse(request.params)
@@ -265,7 +412,19 @@ export async function createApp(
   }
   app.addHook("onClose", async () => {
     unsubscribe();
+    clearInterval(rotationTimer);
+    await rotation;
+    await reconciliation?.stop();
     if (!options.database) await database.sql.end();
   });
-  return { app, database, keys, watcher, invoiceService, issuance, redemption };
+  return {
+    app,
+    database,
+    keys,
+    watcher,
+    invoiceService,
+    issuance,
+    redemption,
+    rotateEpoch,
+  };
 }

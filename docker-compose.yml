@@ -21,6 +21,9 @@ services:
       DATABASE_URL: postgres://blindpass:${POSTGRES_PASSWORD:-blindpass-local-only}@postgres:5432/blindpass
       BLINDPASS_ENV: development
       ZCASH_PAYMENT_MODE: mock
+      BLINDPASS_SIMULATION_URL: ${BLINDPASS_SIMULATION_URL:-}
+      BLINDPASS_DEVNET_URL: ${BLINDPASS_DEVNET_URL:-}
+      BLINDPASS_MAINNET_URL: ${BLINDPASS_MAINNET_URL:-}
       ISSUER_ORIGIN: localhost:3000
       BLINDPASS_SECRETS_DIR: /app/.secrets
       DOTENV_CONFIG_QUIET: "true"

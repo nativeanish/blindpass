@@ -1,0 +1,15 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1920
+PlayResY: 1080
+WrapStyle: 0
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,DejaVu Sans,34,&H00F2F5EE,&H00FFFFFF,&H00060B09,&H00060B09,0,0,0,0,100,100,0,0,1,1,0,2,100,100,34,1
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.64,0:00:04.09,Default,,0,0,0,,Now we search for privacy. The request spends one credential against
+Dialogue: 0,0:00:04.10,0:00:08.25,Default,,0,0,0,,the protected search API, returns results from the bundled technical corpus,
+Dialogue: 0,0:00:08.36,0:00:10.78,Default,,0,0,0,,and updates the balance from ten to nine. This is a
+Dialogue: 0,0:00:10.79,0:00:15.19,Default,,0,0,0,,working local search service. The access proof establishes permission to search,
+Dialogue: 0,0:00:15.32,0:00:19.03,Default,,0,0,0,,without carrying the invoice identifier or requiring an account login.

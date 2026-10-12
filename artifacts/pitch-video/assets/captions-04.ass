@@ -1,0 +1,15 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1920
+PlayResY: 1080
+WrapStyle: 0
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,DejaVu Sans,34,&H00F2F5EE,&H00FFFFFF,&H00060B09,&H00060B09,0,0,0,0,100,100,0,0,1,1,0,2,100,100,34,1
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.64,0:00:03.84,Default,,0,0,0,,Creating the purchase produces a signed invoice and a visible payment
+Dialogue: 0,0:00:03.85,0:00:08.12,Default,,0,0,0,,state. For this demo, we use simulate payment confirmation. No funds
+Dialogue: 0,0:00:08.13,0:00:11.12,Default,,0,0,0,,are sent, and this is not an on chain payment demonstration.
+Dialogue: 0,0:00:11.38,0:00:14.97,Default,,0,0,0,,Real Zcash payments require the external scanner bridge described in the
+Dialogue: 0,0:00:14.98,0:00:19.02,Default,,0,0,0,,project, including address derivation and incoming payment detection.

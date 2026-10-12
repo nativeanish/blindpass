@@ -76,6 +76,7 @@ const slides = [
 ];
 export default function Presentation() {
   const [slide, setSlide] = useState(0);
+  const [ready, setReady] = useState(false);
   useEffect(() => {
     function key(e: KeyboardEvent) {
       if ((e.target as HTMLElement).matches("input,textarea")) return;
@@ -83,6 +84,7 @@ export default function Presentation() {
       if (e.key === "ArrowLeft") setSlide((s) => Math.max(0, s - 1));
     }
     window.addEventListener("keydown", key);
+    setReady(true);
     return () => window.removeEventListener("keydown", key);
   }, []);
   const current = slides[slide];
@@ -189,7 +191,7 @@ export default function Presentation() {
         <div>
           <button
             aria-label="Previous slide"
-            disabled={slide === 0}
+            disabled={!ready || slide === 0}
             onClick={() => setSlide((s) => s - 1)}
           >
             <ArrowLeft size={16} />
@@ -197,7 +199,7 @@ export default function Presentation() {
           <span>{String(slide + 1).padStart(2, "0")} / 10</span>
           <button
             aria-label="Next slide"
-            disabled={slide === 9}
+            disabled={!ready || slide === 9}
             onClick={() => setSlide((s) => s + 1)}
           >
             <ArrowRight size={16} />

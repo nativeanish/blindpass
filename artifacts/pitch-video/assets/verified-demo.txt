@@ -1,0 +1,165 @@
+Skip to content
+BlindPass.
+B
+Personal workspace
+Accountless by design
+LOCAL
+WORKSPACE
+Overview
+Private search
+Buy credits
+Purchases
+Wallet & backup
+Help & service
+EXPLORE
+Privacy explorer
+Live demo
+LAB
+Developer docs
+Merchant view
+Direct connection
+Network metadata is visible
+Prefer the terminal?
+BlindPass
+ZEC × PRIVACY PASS
+Workspace
+Live protocol demo
+Zcash network
+Simulation
+Devnet (testnet) · Not configured
+Mainnet · Not configured
+Simulated payments · No real funds
+Protocol online
+DEVELOPMENT MODE
+Zcash payment simulated. Blind credentials are real.
+Explore the demo
+LIVE PROTOCOL LAB
+Don’t take our word for it.
+
+Two clients. Real blinded credentials. A merchant with no cryptographic join.
+
+Presentation
+PAYMENT SIMULATED
+CRYPTOGRAPHY REAL
+Run complete demo
+A
+Alice
+/ Client 1
+10 CREDITS ISSUED
+10 private searches
+0.01 ZEC
+
+invoice_A · 737799b1-6d16…
+
+search-v1
+Common epoch
+Same key & expiry
+1. Create Alice purchase
+B
+Bob
+/ Client 2
+10 CREDITS ISSUED
+10 private searches
+0.01 ZEC
+
+invoice_B · bf3a0a98-cd04…
+
+search-v1
+Common epoch
+Same key & expiry
+1. Create Bob purchase
+2. Confirm both payments
+3. Issue blind credentials
+4. Redeem shuffled credits
+Demo complete. Real credentials verified. Replay, forgery and malicious configuration rejected.
+ON YOUR DEVICE
+Client secret
+Never sent
+BLIND
+░▒▓
+Blinded element
+Opaque to issuer
+MERCHANT
+Evaluate + prove
+Sees: ????????
+ON YOUR DEVICE
+VERIFY & UNBLIND
+Valid credential
+Payment link: unknown
+
+Conceptual visualization — not literal representation of curve operations.
+
+Issuance transcript
+MERCHANT VIEW
+// Authorized batches. Blinded requests only.
+invoice_A → 10 blinded requests
+invoice_B → 10 blinded requests
+// Final credentials are never received here.
+NO JOIN
+Redemption transcript
+NO INVOICE FIELD
+// Domain-separated token hashes only.
+token_hash_X → 1dNnOU2Y_d0FbOv7…
+token_hash_Y → bPM31FF4mj8x9_8-…
+// Which invoice? No cryptographic matching signal.
+Transcript-only unlinkability demonstration
+
+Identical shared configurations, two buyers, equal-prior illustration. These values do not measure real-world anonymity.
+
+	Invoice A	Invoice B
+Token X	50%	50%
+Token Y	50%	50%
+TRY TO BREAK IT
+Valid once. Verifiable always.
+Replay a spent credential
+
+Submit the exact same token again.
+
+5. Run attack
+TOKEN_ALREADY_SPENT
+Forge a credential
+
+Submit random token material.
+
+6. Run attack
+INVALID_TOKEN
+Malicious issuer configuration
+
+Try unique keys, expiry, class and key ID.
+
+7. Run attack
+ISSUER_POLICY_VIOLATION
+THE HONEST LIMITATION
+What if the network gives you away?
+Same cryptography. Different metadata.
+ILLUSTRATIVE SCENARIO
+Immediate + direct
+Stronger privacy assumptions
+PAYMENT → REDEMPTION
+14:02:31 → 14:02:34
+
+A three-second gap creates a useful timing signal.
+
+NETWORK AT DESTINATION
+Same IP: 192.0.2.x
+
+An illustrative documentation IP, not your measured IP.
+
+BROWSER / CLIENT METADATA
+Same fingerprint: fp_a7…
+
+A matching browser fingerprint adds another signal.
+
+LIKELY CORRELATION
+
+Cryptographic blindness is active, but network and timing evidence can still connect the events.
+
+This control changes an educational scenario. It does not enable Tor in your browser, change your network, or measure your fingerprint. Use blindpass search --tor for the implemented proxy mode.
+
+Privacy audit
+Run privacy audit
+
+Inspect shared configuration, credential design and transport assumptions.
+
+No account. No API key. Just a private credit.
+Payment privacy ≠ network anonymity

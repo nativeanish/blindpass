@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
@@ -14,8 +14,9 @@ import {
   FlaskConical,
 } from "lucide-react";
 import { Badge, ErrorNotice } from "@blindpass/ui";
-import type { Invoice } from "@blindpass/shared";
+import { PAYMENT_ENVIRONMENT_LABELS, type Invoice } from "@blindpass/shared";
 import { browserClient } from "../../../lib/vault";
+import { useService } from "../../../lib/service";
 const steps = [
   "Waiting for payment",
   "Payment detected",
@@ -40,17 +41,43 @@ export default function Buy() {
   const [ready, setReady] = useState(false);
   const [copied, setCopied] = useState(false);
   const qc = useQueryClient();
-  const { data: latest } = useQuery({
+  const { data: latest, error: invoiceError } = useQuery({
     queryKey: ["invoice", invoice?.id],
     enabled: !!invoice && !ready,
     queryFn: () => browserClient().invoice(invoice!.capability!),
-    refetchInterval: 1500,
+    refetchInterval: (query) =>
+      ["EXPIRED", "CREDITS_READY"].includes(query.state.data?.status ?? "")
+        ? false
+        : 3000,
   });
+  const { data: service } = useService();
+  useEffect(() => {
+    const id = new URLSearchParams(location.search).get("invoice");
+    if (id)
+      void browserClient()
+        .options.store.load()
+        .then((state) => {
+          const saved = state.invoices.find((i) => i.id === id);
+          if (saved) {
+            setInvoice(saved);
+            setReady(saved.status === "CREDITS_READY");
+          } else
+            setError(
+              new Error(
+                "This purchase is not in this wallet. Restore its backup first.",
+              ),
+            );
+        })
+        .catch(setError);
+  }, []);
   const state = ready
     ? "CREDITS_READY"
     : busy && stage
       ? "ISSUING_PRIVATE_CREDITS"
-      : (latest?.status ?? invoice?.status);
+      : latest?.status === "CREDITS_READY" ||
+          invoice?.status === "ISSUING_PRIVATE_CREDITS"
+        ? "PAYMENT_CONFIRMED"
+        : (latest?.status ?? invoice?.status);
   const step = statusSteps[state ?? ""] ?? 0;
   async function action(work: () => Promise<void>) {
     setBusy(true);
@@ -61,6 +88,7 @@ export default function Buy() {
       setError(e);
     } finally {
       setBusy(false);
+      setStage("");
     }
   }
   async function simulate() {
@@ -92,7 +120,29 @@ export default function Buy() {
         </div>
         <Badge tone="green">PRIVATE SEARCH</Badge>
       </div>
-      <ErrorNotice error={error} />
+      <ErrorNotice error={error ?? invoiceError} />
+      {(error as { code?: string } | undefined)?.code ===
+        "ISSUER_POLICY_VIOLATION" && (
+        <p className="panel-note">
+          Your wallet has been kept.{" "}
+          <Link className="text-link" href="/app/help#issuer-policy">
+            Get help with issuer verification.
+          </Link>
+        </p>
+      )}
+      {invoice && !ready && (
+        <button
+          className="text-link"
+          style={{ marginBottom: 20 }}
+          onClick={() => {
+            setInvoice(undefined);
+            setError(undefined);
+            setStage("");
+          }}
+        >
+          ← Back to credit packs
+        </button>
+      )}
       {!invoice ? (
         <>
           <div className="offer-grid">
@@ -125,42 +175,55 @@ export default function Buy() {
                 className="button button-block"
                 disabled={busy}
                 onClick={() =>
-                  action(async () =>
-                    setInvoice(await browserClient().buy("search-10")),
-                  )
+                  action(async () => {
+                    setInvoice(await browserClient().buy("search-10"));
+                    await qc.invalidateQueries({ queryKey: ["wallet"] });
+                  })
                 }
               >
                 {busy ? "Creating signed invoice…" : "Get 10 private credits"}
                 <ArrowRight size={16} />
               </button>
             </div>
-            <div className="offer-card unavailable">
-              <div className="offer-top">
-                <LayersIcon />
-                <Badge>COMING LATER</Badge>
+            <div className="offer-card purchase-guide">
+              <ShieldCheck size={26} className="accent" />
+              <h2>Know what you’re buying.</h2>
+              <p>
+                Search a curated library of internet standards, privacy, and
+                security resources. One completed query uses one credit.
+              </p>
+              <div className="detail-list">
+                <div className="detail-row">
+                  <span>Payment network</span>
+                  <strong>
+                    {service?.paymentMode === "mock"
+                      ? "Simulation · no real funds"
+                      : service
+                        ? `Zcash ${PAYMENT_ENVIRONMENT_LABELS[service.paymentEnvironment]}`
+                        : "Checking…"}
+                  </strong>
+                </div>
+                <div className="detail-row">
+                  <span>Current batch expires</span>
+                  <strong>
+                    {service
+                      ? new Date(service.creditExpiresAt).toLocaleString()
+                      : "Checking…"}
+                  </strong>
+                </div>
+                <div className="detail-row">
+                  <span>Renewal</span>
+                  <strong>No automatic charges</strong>
+                </div>
               </div>
-              <h2>25 private searches</h2>
-              <p>A larger pack for deeper exploration.</p>
-              <div className="offer-price">
-                0.02 <span>ZEC / batch</span>
-              </div>
-              <p>Planned denomination. Not available in this MVP.</p>
-              <div className="offer-features">
-                <span>
-                  <Check />
-                  Same privacy architecture
-                </span>
-                <span>
-                  <Check />A separate, common denomination
-                </span>
-                <span>
-                  <Check />
-                  No unique pricing identifiers
-                </span>
-              </div>
-              <button className="button button-secondary button-block" disabled>
-                Not available yet
-              </button>
+              <p>
+                All credits in a monthly epoch expire together. This is not a
+                full month from purchase. Save a wallet backup after receiving
+                credits.
+              </p>
+              <Link href="/app/help" className="text-link">
+                Payment and recovery help <ArrowUpRight size={14} />
+              </Link>
             </div>
           </div>
           <div className="privacy-note" style={{ maxWidth: 740 }}>
@@ -214,6 +277,13 @@ export default function Buy() {
                   <Link href="/app/search" className="button button-block">
                     Make your first private search <ArrowRight size={16} />
                   </Link>
+                  <Link
+                    href="/app/wallet"
+                    className="text-link"
+                    style={{ marginTop: 16 }}
+                  >
+                    Back up these credits <ShieldCheck size={15} />
+                  </Link>
                   <p className="panel-note">
                     Immediate redemption can reveal a timing relationship. For
                     stronger separation, redeem later using a separately
@@ -264,15 +334,20 @@ export default function Buy() {
                   <div style={{ display: "flex", gap: 10 }}>
                     <button
                       className="button button-secondary button-small"
-                      onClick={async () => {
-                        await navigator.clipboard.writeText(invoice.paymentUri);
-                        setCopied(true);
-                      }}
+                      disabled={state === "EXPIRED"}
+                      onClick={() =>
+                        action(async () => {
+                          await navigator.clipboard.writeText(
+                            invoice.paymentUri,
+                          );
+                          setCopied(true);
+                        })
+                      }
                     >
                       <Copy size={14} />
                       {copied ? "Copied" : "Copy payment URI"}
                     </button>
-                    {!invoice.simulated && (
+                    {!invoice.simulated && state !== "EXPIRED" && (
                       <a
                         href={invoice.paymentUri}
                         className="button button-secondary button-small"
@@ -331,10 +406,14 @@ export default function Buy() {
                           await browserClient().issue(invoice, setStage);
                           setReady(true);
                           await qc.invalidateQueries({ queryKey: ["wallet"] });
+                          await qc.invalidateQueries({ queryKey: ["balance"] });
                         })
                       }
                     >
-                      Receive private credits <ScanLine size={16} />
+                      {latest?.status === "CREDITS_READY"
+                        ? "Recover private credits"
+                        : "Receive private credits"}{" "}
+                      <ScanLine size={16} />
                     </button>
                   )}
                   {state === "EXPIRED" && (
@@ -412,9 +491,6 @@ export default function Buy() {
       )}
     </div>
   );
-}
-function LayersIcon() {
-  return <ScanLine size={24} style={{ opacity: 0.45 }} />;
 }
 function PendingInvoices({
   onResume,

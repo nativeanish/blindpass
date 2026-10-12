@@ -67,7 +67,7 @@ The example angle-bracket address is documentation, not a fabricated valid addre
 
 ### Polling
 
-`GET /v1/invoices/:id/payment` returns `null` when no observation exists, otherwise the event shape below. The adapter implements this for reconciliation. The running reference API receives events through webhooks; production operators should schedule reconciliation through the same validated payment handler to recover missed webhooks.
+`GET /v1/invoices/:id/payment` returns `null` when no observation exists, otherwise the event shape below. The running API automatically reconciles up to 20 due invoices every 30 seconds using the same validated payment handler as webhooks. Four reads run concurrently, ordered by last check, with a seven-day observation window. `RECONCILIATION_INTERVAL_MS` controls scheduling; `/operator` reports progress and failures.
 
 ### Payment webhook
 
@@ -86,15 +86,56 @@ X-Blindpass-Signature: <lowercase hex HMAC-SHA256>
   "amount": "0.01",
   "blockHeight": 123456,
   "confirmations": 3,
-  "reorg": false
+  "reorg": false,
+  "observedAt": "2026-10-06T12:00:00.000Z"
 }
 ```
+
+`observedAt` is optional but recommended: the authenticated time at which the incoming payment was first observed, retained across confirmation updates. It lets an on-time payment confirm after its payment deadline. Future times or times before invoice creation are rejected. Without this field, the first receipt time at the API is used. Issuance must still complete before its issuance deadline.
 
 Compute `HMAC-SHA256(webhook_secret, timestamp + "." + exact_raw_JSON_body)`. BlindPass uses timing-safe comparison, a five-minute freshness window, strict payload validation and event-ID deduplication. Identical retries must retain the event ID; new confirmation/reorg observations need a new ID. The bridge must verify that the observed output belongs to the assigned invoice address. An HMAC authenticates the bridge, not the underlying truth of its claim.
 
 The fixture at `infra/fixtures/payment-webhook.json` is explicitly not a transaction. Tests cover signature failure, modified raw bytes, stale timestamps and invalid receiver policy. The mock endpoints can exercise pending, detected, waiting-confirmation, confirmed, duplicate and reorg states without any external service.
 
 ## Testnet procedure
+
+### Local network workspaces
+
+The local scanner overlay uses separate Compose projects and volumes for each
+network. Devnet is available at `http://localhost:3400/app` after startup, and
+Mainnet at `http://localhost:3500/app`. The existing simulation at port 3100
+retains its database and keys.
+
+Copy `.env.devnet.example` to `.env.devnet` or `.env.mainnet.example` to
+`.env.mainnet`. Set `POSTGRES_PASSWORD` to a long URL-safe random value. Configure
+`ZCASH_SCANNER_URL`, the scanner's API credential, and the matching webhook
+secret. The scanner must implement the bridge contract above and have its
+receiving wallet/viewing capability configured for the selected chain.
+
+Check the real bridge before starting the workspace:
+
+```bash
+pnpm exec tsx --env-file=.env.devnet scripts/check-scanner.ts
+docker compose --env-file .env.devnet -f docker-compose.yml -f infra/compose.scanner.yml up --build -d
+```
+
+Replace `.env.devnet` with `.env.mainnet` for Mainnet. The check creates one
+unpaid scanner invoice, validates the bridge response, and polls it. It sends
+no funds. Complete the funded testnet procedure below to verify actual scanning
+and confirmation behavior. A public lightwalletd/indexer endpoint exposes a
+different protocol and cannot be used directly as `ZCASH_SCANNER_URL`.
+
+If the scanner sends webhooks, configure its target as the corresponding API's
+`/webhooks/zcash/payment` route. The local host API ports are 3401 and 3501;
+the scanner must be able to reach the chosen address. The API also polls the
+scanner, so webhooks are optional for the local check.
+
+After checking a workspace, set its public app origin in the other deployment's
+`BLINDPASS_DEVNET_URL` or `BLINDPASS_MAINNET_URL` and recreate that API to enable
+the selector option. These local profiles bind to loopback and use development
+issuer-key storage. Use the production runbook for a public service.
+
+### Verify a real testnet payment
 
 1. Deploy a scanner backed by a maintained Zcash wallet/scanning library, initialized with an appropriate testnet incoming viewing capability and birth height.
 2. Implement the above bridge contract, address validation and signed callbacks. Test receiver decoding and diversified address allocation independently.

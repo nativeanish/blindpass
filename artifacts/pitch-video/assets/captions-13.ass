@@ -1,0 +1,15 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1920
+PlayResY: 1080
+WrapStyle: 0
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,DejaVu Sans,34,&H00F2F5EE,&H00FFFFFF,&H00060B09,&H00060B09,0,0,0,0,100,100,0,0,1,1,0,2,100,100,34,1
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.63,0:00:03.75,Default,,0,0,0,,The next milestones are concrete. Connect and validate a real Zcash
+Dialogue: 0,0:00:03.76,0:00:07.75,Default,,0,0,0,,scanner on testnet, complete deployment operations, and obtain independent security review.
+Dialogue: 0,0:00:07.93,0:00:11.74,Default,,0,0,0,,Stronger configuration transparency is also future work, especially for first use
+Dialogue: 0,0:00:11.75,0:00:15.51,Default,,0,0,0,,trust. Today's deliverable is a working accountless search and credential system,
+Dialogue: 0,0:00:15.62,0:00:19.09,Default,,0,0,0,,with its external payment integration requirements and limitations documented openly.

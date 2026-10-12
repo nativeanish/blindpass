@@ -113,6 +113,7 @@ test("landing, docs, merchant view, presentation and mobile layout render cleanl
   await expect(
     page.getByRole("heading", { name: "Private payment ≠ private usage." }),
   ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Next slide" })).toBeEnabled();
   await page.keyboard.press("ArrowRight");
   await expect(
     page.getByRole("heading", {

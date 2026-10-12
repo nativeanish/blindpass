@@ -1,0 +1,15 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1920
+PlayResY: 1080
+WrapStyle: 0
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,DejaVu Sans,34,&H00F2F5EE,&H00FFFFFF,&H00060B09,&H00060B09,0,0,0,0,100,100,0,0,1,1,0,2,100,100,34,1
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.63,0:00:05.20,Default,,0,0,0,,Compare the two transcripts. Issuance records authorized batches and blinded requests.
+Dialogue: 0,0:00:05.42,0:00:09.06,Default,,0,0,0,,Redemption records token hashes, without an invoice field. There is no
+Dialogue: 0,0:00:09.07,0:00:13.56,Default,,0,0,0,,direct cryptographic matching identifier between them. The fifty fifty matrix illustrates
+Dialogue: 0,0:00:13.57,0:00:16.96,Default,,0,0,0,,equal priors for two buyers in this transcript only example. It
+Dialogue: 0,0:00:16.97,0:00:19.06,Default,,0,0,0,,is not a measurement of real world anonymity.

@@ -1,3 +1,4 @@
+import { connection } from "next/server";
 import type { Metadata } from "next";
 import "@fontsource-variable/geist";
 import "@fontsource-variable/geist-mono";
@@ -9,7 +10,13 @@ export const metadata: Metadata = {
   description:
     "Accountless access with shielded ZEC and unlinkable single-use credentials.",
 };
-export default function Layout({ children }: { children: React.ReactNode }) {
+export default async function Layout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  // Fresh rendering is required for the per-request CSP nonce.
+  await connection();
   return (
     <html lang="en">
       <body>

@@ -1,0 +1,13 @@
+# Separate origin and volumes for release verification. Never serve an unrelated
+# issuer at the persistent preview's localhost:3100 address.
+# docker compose -f docker-compose.yml -f infra/compose.verify.yml up --build -d
+name: blindpass-verify
+services:
+  postgres:
+    ports: !override ["127.0.0.1:55434:5432"]
+  api:
+    ports: !override ["127.0.0.1:3201:3001"]
+    environment:
+      ISSUER_ORIGIN: localhost:3200
+  web:
+    ports: !override ["127.0.0.1:3200:3000"]

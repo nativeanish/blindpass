@@ -16,3 +16,13 @@ All twelve implementation phases are complete. See [verification.md](docs/verifi
 10. Explicit SOCKS5h/Tor transport.
 11. Authenticated scanner adapter boundary and fixtures.
 12. Product polish, presentation, docs, containers, CI, final verification.
+
+
+## Service upgrade
+
+- Durable encrypted issuance recovery across browser/CLI restarts, including recovery of committed batches after epoch rotation.
+- Passphrase-protected wallet backup/restore, purchase history, expiry visibility, ambiguous-search accounting, and service/support screens.
+- Scanner reconciliation with authenticated original observation times, production rate budgets, liveness/readiness checks, and authenticated aggregate operations.
+- Preprovisioned automatic epoch rotation, signing/key consistency checks, transactional versioned migrations, script-nonce CSP, and production-only route restrictions.
+- Separate HTTPS deployment, key generation/provisioning tools, and launch/backup/restore runbook.
+- See `docs/production-verification.md` for executed checks. A real scanner, domain, external payment validation, and independent review are still launch dependencies.

@@ -10,3 +10,10 @@ test-results/
 playwright-report/
 *.tsbuildinfo
 .DS_Store
+
+.env.*
+!.env.example
+!.env.production.example
+!.env.devnet.example
+!.env.mainnet.example
+backups/

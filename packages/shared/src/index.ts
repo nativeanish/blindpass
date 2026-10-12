@@ -2,6 +2,34 @@ import { z } from "zod";
 export const TOKEN_CLASS = "search-v1";
 export const TOKEN_TYPE = 1;
 export const BATCH_SIZE = 10;
+export const PAYMENT_ENVIRONMENTS = [
+  "simulation",
+  "devnet",
+  "mainnet",
+] as const;
+export type PaymentEnvironment = (typeof PAYMENT_ENVIRONMENTS)[number];
+export const PAYMENT_ENVIRONMENT_LABELS: Record<PaymentEnvironment, string> = {
+  simulation: "Simulation",
+  devnet: "Devnet (testnet)",
+  mainnet: "Mainnet",
+};
+export interface PaymentEnvironmentOption {
+  id: PaymentEnvironment;
+  available: boolean;
+  url: string | null;
+}
+export interface ServiceInfo {
+  name: string;
+  issuer: string;
+  network: "testnet" | "mainnet";
+  paymentMode: "mock" | "scanner";
+  paymentEnvironment: PaymentEnvironment;
+  paymentEnvironments: PaymentEnvironmentOption[];
+  supportUrl: string;
+  creditExpiresAt: string;
+  issuanceEndsAt: string;
+  fingerprint: string;
+}
 export const ErrorCodes = [
   "PAYMENT_NOT_CONFIRMED",
   "INVOICE_EXPIRED",
@@ -17,6 +45,7 @@ export const ErrorCodes = [
   "INVALID_REQUEST",
   "NOT_FOUND",
   "VAULT_LOCKED",
+  "RATE_LIMITED",
 ] as const;
 export type ErrorCode = (typeof ErrorCodes)[number];
 export class BlindPassError extends Error {
@@ -30,9 +59,10 @@ export class BlindPassError extends Error {
   }
 }
 export function b64(bytes: Uint8Array): string {
-  return btoa(String.fromCharCode(...bytes))
-    .replaceAll("+", "-")
-    .replaceAll("/", "_");
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 8192)
+    binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
+  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_");
 }
 export function unb64(value: string): Uint8Array {
   return Uint8Array.from(

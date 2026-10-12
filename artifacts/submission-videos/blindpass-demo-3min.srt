@@ -1,0 +1,179 @@
+1
+00:00:00,645 --> 00:00:03,970
+Let's walk through the actual application. On the buy screen, the
+
+2
+00:00:03,980 --> 00:00:07,412
+current offer is ten private searches for zero point zero one
+
+3
+00:00:07,422 --> 00:00:10,951
+ZEC. There is no signup form and no customer profile to
+
+4
+00:00:10,961 --> 00:00:15,749
+create. This recording uses the local simulation environment. The payment events
+
+5
+00:00:15,759 --> 00:00:19,009
+are simulated; the credential cryptography is real.
+
+6
+00:00:20,641 --> 00:00:23,840
+Creating the purchase produces a signed invoice and a visible payment
+
+7
+00:00:23,850 --> 00:00:28,117
+state. For this demo, we use simulate payment confirmation. No funds
+
+8
+00:00:28,127 --> 00:00:31,122
+are sent, and this is not an on chain payment demonstration.
+
+9
+00:00:31,381 --> 00:00:34,971
+Real Zcash payments require the external scanner bridge described in the
+
+10
+00:00:34,981 --> 00:00:39,022
+project, including address derivation and incoming payment detection.
+
+11
+00:00:40,627 --> 00:00:43,802
+Once the purchase is confirmed, receive private credits runs the issuance
+
+12
+00:00:43,812 --> 00:00:47,873
+protocol. The browser blinds its requests, verifies the issuer's proof, and
+
+13
+00:00:47,883 --> 00:00:52,003
+unblinds locally. The wallet now holds ten usable credits. BlindPass uses
+
+14
+00:00:52,013 --> 00:00:56,233
+Cloudflare's Privacy Pass implementation rather than inventing a new cryptographic primitive.
+
+15
+00:00:56,435 --> 00:00:59,077
+The issuer does not receive these final credits during issuance.
+
+16
+00:01:00,639 --> 00:01:04,091
+Now we search for privacy. The request spends one credential against
+
+17
+00:01:04,101 --> 00:01:08,253
+the protected search API, returns results from the bundled technical corpus,
+
+18
+00:01:08,357 --> 00:01:10,782
+and updates the balance from ten to nine. This is a
+
+19
+00:01:10,792 --> 00:01:15,190
+working local search service. The access proof establishes permission to search,
+
+20
+00:01:15,315 --> 00:01:19,032
+without carrying the invoice identifier or requiring an account login.
+
+21
+00:01:20,632 --> 00:01:24,218
+Credits stay in an encrypted local wallet. The product includes encrypted
+
+22
+00:01:24,228 --> 00:01:28,327
+backup and restore, purchase history, and recovery of interrupted issuance using
+
+23
+00:01:28,337 --> 00:01:32,443
+saved state. That makes accountless access more practical, but custody matters.
+
+24
+00:01:32,662 --> 00:01:35,909
+Clearing local data without a current backup can lose access. There
+
+25
+00:01:35,919 --> 00:01:39,070
+is no account based password reset to reconstruct missing credits.
+
+26
+00:01:40,646 --> 00:01:44,525
+The protocol lab makes the privacy claim inspectable. Alice and Bob
+
+27
+00:01:44,535 --> 00:01:47,622
+each purchase the same ten credit batch and receive twenty real
+
+28
+00:01:47,632 --> 00:01:51,608
+credentials in total. Both use a shared key, class, epoch, and
+
+29
+00:01:51,618 --> 00:01:56,086
+expiry. We then redeem credentials in shuffled order. Shared configuration helps
+
+30
+00:01:56,096 --> 00:01:59,056
+avoid giving each buyer a distinctive cryptographic label.
+
+31
+00:02:00,632 --> 00:02:05,200
+Compare the two transcripts. Issuance records authorized batches and blinded requests.
+
+32
+00:02:05,419 --> 00:02:09,064
+Redemption records token hashes, without an invoice field. There is no
+
+33
+00:02:09,074 --> 00:02:13,563
+direct cryptographic matching identifier between them. The fifty fifty matrix illustrates
+
+34
+00:02:13,573 --> 00:02:16,961
+equal priors for two buyers in this transcript only example. It
+
+35
+00:02:16,971 --> 00:02:19,057
+is not a measurement of real world anonymity.
+
+36
+00:02:20,638 --> 00:02:24,162
+The running demo also tests abuse. Reusing a spent credential returns
+
+37
+00:02:24,172 --> 00:02:28,374
+token already spent. A forged credential returns invalid token. Attempts to
+
+38
+00:02:28,384 --> 00:02:32,272
+change the issuer key, expiry, class, or key identifier are rejected
+
+39
+00:02:32,282 --> 00:02:35,542
+by client policy. These results were captured from the application. They
+
+40
+00:02:35,552 --> 00:02:39,078
+demonstrate specific enforcement checks, not an independent security audit.
+
+41
+00:02:40,630 --> 00:02:43,912
+The privacy story has three distinct layers. Shielded Zcash protects payment
+
+42
+00:02:43,922 --> 00:02:47,364
+information on the public chain. Blind issuance removes the direct cryptographic
+
+43
+00:02:47,374 --> 00:02:50,772
+payment to usage link. Optional verified Tor transport in the CLI
+
+44
+00:02:50,782 --> 00:02:55,454
+reduces source network exposure. Timing, browser behavior, query contents, and compromised
+
+45
+00:02:55,464 --> 00:02:59,108
+devices can still reveal information. BlindPass does not promise total anonymity.

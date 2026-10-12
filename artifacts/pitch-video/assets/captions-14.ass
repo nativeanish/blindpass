@@ -1,0 +1,15 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1920
+PlayResY: 1080
+WrapStyle: 0
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,DejaVu Sans,34,&H00F2F5EE,&H00FFFFFF,&H00060B09,&H00060B09,0,0,0,0,100,100,0,0,1,1,0,2,100,100,34,1
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.66,0:00:05.49,Default,,0,0,0,,BlindPass demonstrates a different relationship between payment and access. A service
+Dialogue: 0,0:00:05.50,0:00:08.45,Default,,0,0,0,,can verify that a request is paid for without asking the
+Dialogue: 0,0:00:08.46,0:00:12.69,Default,,0,0,0,,credential to identify the purchase behind it. Explore the demo, inspect
+Dialogue: 0,0:00:12.70,0:00:16.44,Default,,0,0,0,,the protocol, and help test the next integration. One credit proves
+Dialogue: 0,0:00:16.45,0:00:19.01,Default,,0,0,0,,access. It never needs to say who you are.

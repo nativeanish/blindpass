@@ -10,3 +10,17 @@ test-results
 playwright-report
 coverage
 *.tsbuildinfo
+
+.env.*
+backups
+artifacts
+book
+docs
+.agents
+.codex
+.github
+**/__pycache__
+*.log
+*.dump
+*.pem
+*.key

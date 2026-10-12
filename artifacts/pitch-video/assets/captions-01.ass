@@ -1,0 +1,15 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1920
+PlayResY: 1080
+WrapStyle: 0
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,DejaVu Sans,34,&H00F2F5EE,&H00FFFFFF,&H00060B09,&H00060B09,0,0,0,0,100,100,0,0,1,1,0,2,100,100,34,1
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.64,0:00:03.82,Default,,0,0,0,,A private payment is only one part of a private experience.
+Dialogue: 0,0:00:04.05,0:00:07.05,Default,,0,0,0,,A service can still attach your purchase to an account, session,
+Dialogue: 0,0:00:07.12,0:00:11.21,Default,,0,0,0,,or API key, and connect every request afterward. For people researching
+Dialogue: 0,0:00:11.22,0:00:15.93,Default,,0,0,0,,sensitive topics, that creates a lasting activity trail. BlindPass asks: can
+Dialogue: 0,0:00:15.94,0:00:19.05,Default,,0,0,0,,someone prove they paid without identifying their purchase every time?

@@ -17,6 +17,8 @@ it("requires production secrets, forbids mock payments and omits debug routes", 
     "ZCASH_SCANNER_API_KEY",
     "ZCASH_WEBHOOK_SECRET",
     "ISSUER_ORIGIN",
+    "SUPPORT_URL",
+    "OPERATOR_API_KEY",
   ];
   const originalEnv = Object.fromEntries(
     envKeys.map((k) => [k, process.env[k]]),
@@ -44,7 +46,9 @@ it("requires production secrets, forbids mock payments and omits debug routes", 
       PRIVACYPASS_ISSUER_EPOCH: currentEpoch(),
       ZCASH_SCANNER_URL: "https://scanner.example",
       ZCASH_SCANNER_API_KEY: "test-only",
-      ZCASH_WEBHOOK_SECRET: "test-only",
+      ZCASH_WEBHOOK_SECRET: "test-only-webhook-secret-32-characters",
+      SUPPORT_URL: "https://search.example/support",
+      OPERATOR_API_KEY: "test-only-operator-secret-at-least-32-characters",
       ISSUER_ORIGIN: "search.example",
     });
     config.ISSUER_ORIGIN = "search.example";

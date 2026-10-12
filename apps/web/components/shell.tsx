@@ -14,12 +14,19 @@ import {
   Globe,
   ChevronRight,
   FlaskConical,
+  Wallet,
+  Receipt,
+  LifeBuoy,
 } from "lucide-react";
 import { Logo, Badge } from "@blindpass/ui";
+import { PaymentNetworkSelector } from "./payment-network-selector";
 const navigation = [
   { href: "/app", label: "Overview", icon: LayoutDashboard },
   { href: "/app/search", label: "Private search", icon: Search },
   { href: "/app/buy", label: "Buy credits", icon: Plus },
+  { href: "/app/purchases", label: "Purchases", icon: Receipt },
+  { href: "/app/wallet", label: "Wallet & backup", icon: Wallet },
+  { href: "/app/help", label: "Help & service", icon: LifeBuoy },
 ];
 export function Header() {
   return (
@@ -42,8 +49,9 @@ export function Header() {
 }
 export function AppShell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
-  const { data: health } = useQuery({
+  const { data: health, isError: unavailable } = useQuery({
     queryKey: ["health"],
+    refetchInterval: 30000,
     queryFn: async () => {
       const r = await fetch("/api/health");
       if (!r.ok) throw new Error("API unavailable");
@@ -97,19 +105,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <ScanLine size={17} />
             Privacy explorer
           </Link>
-          <Link
-            className={`nav-item ${path === "/demo" ? "active" : ""}`}
-            href="/demo"
-          >
-            <FlaskConical size={17} />
-            Live demo<Badge>LAB</Badge>
-          </Link>
+          {health?.environment && health.environment !== "production" && (
+            <Link
+              className={`nav-item ${path === "/demo" ? "active" : ""}`}
+              href="/demo"
+            >
+              <FlaskConical size={17} />
+              Live demo<Badge>LAB</Badge>
+            </Link>
+          )}
           <Link className="nav-item" href="/docs">
             <BookOpen size={17} />
             Developer docs
             <ArrowUpRight size={13} />
           </Link>
-          {health?.environment !== "production" && (
+          {health?.environment && health.environment !== "production" && (
             <Link
               className={`nav-item ${path === "/admin" ? "active" : ""}`}
               href="/admin"
@@ -132,7 +142,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <ArrowUpRight size={14} />
           </Link>
           <div className="sidebar-footer">
-            <span>BlindPass v0.1</span>
+            <span>BlindPass</span>
             <span className="mono">ZEC × PRIVACY PASS</span>
           </div>
         </div>
@@ -144,10 +154,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <ChevronRight size={14} />
             <span>{title}</span>
           </div>
-          <span className="header-note">
-            <span className={`status-dot ${health ? "" : "amber"}`} />
-            {health ? "Protocol online" : "Connecting to API"}
-          </span>
+          <div className="app-header-controls">
+            <PaymentNetworkSelector />
+            <span className="header-note">
+              <span
+                className={`status-dot ${health && !unavailable ? "" : "amber"}`}
+              />
+              {unavailable
+                ? "Service unavailable"
+                : health
+                  ? "Protocol online"
+                  : "Connecting to API"}
+            </span>
+          </div>
         </header>
         {health?.mode === "mock" && (
           <div className="dev-banner">

@@ -839,13 +839,15 @@ a.accent {
   flex-direction: column;
 }
 .app-header {
-  height: 69px;
+  min-height: 87px;
   border-bottom: 1px solid var(--line);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 37px;
   font-size: 11px;
+  gap: 18px;
+  flex-wrap: wrap;
 }
 .app-header > div {
   display: flex;
@@ -857,6 +859,45 @@ a.accent {
   align-items: center;
   gap: 8px;
   font-size: 10px;
+  color: #95a08e;
+  white-space: nowrap;
+}
+.payment-network {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 5px 10px;
+  min-width: 0;
+}
+.payment-network label {
+  color: var(--muted);
+  font-size: 10px;
+}
+.payment-network select {
+  min-width: 0;
+  width: 170px;
+  max-width: 100%;
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  color-scheme: dark;
+}
+.payment-network select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.payment-network select:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+.payment-network-description {
+  grid-column: 1 / -1;
+  font-size: 9px;
   color: #95a08e;
 }
 .dev-banner {
@@ -1623,9 +1664,15 @@ a.accent {
     margin-left: 0;
   }
   .app-header {
-    height: 49px;
-    padding: 0 20px;
+    padding: 12px 20px;
     font-size: 10px;
+    gap: 12px;
+  }
+  .app-header > .app-header-controls {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
   }
   .header-note {
     font-size: 9px;
@@ -1730,4 +1777,156 @@ a.accent {
     transition: none !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* Wallet and purchase recovery */
+.recovery-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  align-items: start;
+}
+.wallet-stats {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.backup-date {
+  font-size: 24px;
+  margin: 18px 0;
+  letter-spacing: -0.03em;
+}
+.recovery-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.recovery-form p {
+  font-size: 13px;
+}
+.recovery-form label {
+  font-size: 12px;
+  font-weight: 500;
+  margin-top: 5px;
+}
+.recovery-form input {
+  width: 100%;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+}
+.recovery-form input[type="file"] {
+  font-size: 12px;
+}
+.recovery-form input::file-selector-button {
+  padding: 7px;
+  margin-right: 10px;
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+}
+.panel-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.purchase-row {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--line);
+}
+.purchase-row:first-child {
+  padding-top: 0;
+}
+.purchase-row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.purchase-info {
+  flex: 1;
+  min-width: 0;
+}
+.purchase-row p {
+  font-size: 12px;
+  margin-top: 4px;
+}
+.purchase-row strong {
+  font-size: 14px;
+}
+.purchase-row .badge {
+  white-space: normal;
+}
+.purchase-guide {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  background: var(--surface);
+}
+.purchase-guide .detail-row {
+  gap: 24px;
+}
+.purchase-guide h2 {
+  margin: 0;
+}
+.issuer-fingerprint {
+  overflow-wrap: anywhere;
+  font-size: 11px;
+  color: var(--accent);
+}
+.help-questions details {
+  padding: 18px 0;
+  border-bottom: 1px solid var(--line);
+}
+.help-questions details:first-child {
+  padding-top: 0;
+}
+.help-questions details:last-child {
+  border-bottom: 0;
+}
+.help-questions summary {
+  cursor: pointer;
+  font-weight: 500;
+}
+.help-questions details p {
+  margin-top: 12px;
+  font-size: 13px;
+  max-width: 80ch;
+}
+@media (max-width: 900px) {
+  .recovery-grid {
+    grid-template-columns: 1fr;
+  }
+  .wallet-stats {
+    grid-template-columns: 1fr;
+  }
+  .purchase-row {
+    flex-wrap: wrap;
+  }
+  .purchase-info {
+    flex-basis: 100%;
+  }
+}
+.operator-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 60px 28px;
+}
+.operator-login {
+  max-width: 520px;
+}
+.operator-actions {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+.operator-actions .muted {
+  flex: 1;
+  font-size: 12px;
 }

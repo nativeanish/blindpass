@@ -1,0 +1,15 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1920
+PlayResY: 1080
+WrapStyle: 0
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,DejaVu Sans,34,&H00F2F5EE,&H00FFFFFF,&H00060B09,&H00060B09,0,0,0,0,100,100,0,0,1,1,0,2,100,100,34,1
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.63,0:00:04.22,Default,,0,0,0,,Credits stay in an encrypted local wallet. The product includes encrypted
+Dialogue: 0,0:00:04.23,0:00:08.33,Default,,0,0,0,,backup and restore, purchase history, and recovery of interrupted issuance using
+Dialogue: 0,0:00:08.34,0:00:12.44,Default,,0,0,0,,saved state. That makes accountless access more practical, but custody matters.
+Dialogue: 0,0:00:12.66,0:00:15.91,Default,,0,0,0,,Clearing local data without a current backup can lose access. There
+Dialogue: 0,0:00:15.92,0:00:19.07,Default,,0,0,0,,is no account based password reset to reconstruct missing credits.

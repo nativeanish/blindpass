@@ -32,7 +32,10 @@ async function set(key: string, value: unknown) {
       db.close();
       resolve();
     };
-    tx.onerror = () => reject(tx.error);
+    tx.onerror = tx.onabort = () => {
+      db.close();
+      reject(tx.error ?? new Error("Wallet transaction was interrupted."));
+    };
   });
 }
 interface Ciphertext {
@@ -40,8 +43,12 @@ interface Ciphertext {
   data: ArrayBuffer;
 }
 export class BrowserVault implements CredentialStore {
-  private async key() {
+  private async key(create = true) {
     let key = await get<CryptoKey>("key");
+    if (!key && !create)
+      throw new Error(
+        "The local wallet key is missing. Restore an encrypted backup in an empty browser profile.",
+      );
     if (!key) {
       key = await crypto.subtle.generateKey(
         { name: "AES-GCM", length: 256 },
@@ -61,7 +68,7 @@ export class BrowserVault implements CredentialStore {
         iv: buffer(record.iv),
         additionalData: new TextEncoder().encode("blindpass-browser-v1"),
       },
-      await this.key(),
+      await this.key(false),
       record.data,
     );
     return JSON.parse(new TextDecoder().decode(bytes)) as ClientState;

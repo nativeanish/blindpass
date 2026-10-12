@@ -1,0 +1,16 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1920
+PlayResY: 1080
+WrapStyle: 0
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,DejaVu Sans,34,&H00F2F5EE,&H00FFFFFF,&H00060B09,&H00060B09,0,0,0,0,100,100,0,0,1,1,0,2,100,100,34,1
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.64,0:00:04.30,Default,,0,0,0,,For developers, the reusable idea is simple: charge for access without
+Dialogue: 0,0:00:04.31,0:00:07.88,Default,,0,0,0,,building a customer identity into every request. The repository includes a
+Dialogue: 0,0:00:07.89,0:00:11.55,Default,,0,0,0,,client SDK and server redemption middleware. Private technical search is the
+Dialogue: 0,0:00:11.56,0:00:15.00,Default,,0,0,0,,working starting point. Paid data APIs and private downloads are possible
+Dialogue: 0,0:00:15.01,0:00:18.49,Default,,0,0,0,,future applications; they are not presented as shipped integrations or existing
+Dialogue: 0,0:00:18.50,0:00:19.08,Default,,0,0,0,,customers.

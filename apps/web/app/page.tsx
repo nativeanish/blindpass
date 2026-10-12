@@ -37,8 +37,8 @@ export default function Home() {
               unlinkable, single-use credentials.
             </p>
             <div className="hero-buttons">
-              <Link href="/demo" className="button">
-                Try the live demo <ArrowUpRight size={17} />
+              <Link href="/app/buy" className="button">
+                Get private credits <ArrowUpRight size={17} />
               </Link>
               <Link href="/docs" className="button button-secondary">
                 <Code2 size={16} />
@@ -366,10 +366,10 @@ export default function Home() {
           <div>
             <h2>Access, without the attachment.</h2>
             <p>
-              Real blind credentials. A simulated payment. See it for yourself.
+              Ten private searches. One shielded payment. No account required.
             </p>
           </div>
-          <Link className="button" href="/demo">
+          <Link className="button" href="/app">
             Explore BlindPass <ArrowUpRight size={17} />
           </Link>
         </section>
@@ -381,7 +381,7 @@ export default function Home() {
           <nav>
             <Link href="/docs">Documentation</Link>
             <Link href="/demo/privacy">Privacy model</Link>
-            <Link href="/presentation">Presentation ↗</Link>
+            <Link href="/app/help">Service & support ↗</Link>
           </nav>
         </footer>
       </main>

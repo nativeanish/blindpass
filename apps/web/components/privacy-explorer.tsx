@@ -220,9 +220,9 @@ export function PrivacyExplorer() {
             don’t.
           </p>
         </div>
-        <Link href="/demo" className="button button-small">
+        <Link href="/app/buy" className="button button-small">
           <Play size={14} />
-          Run it live
+          Get private credits
         </Link>
       </div>
       <div className="comparison-grid">

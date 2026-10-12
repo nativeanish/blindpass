@@ -1,0 +1,15 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1920
+PlayResY: 1080
+WrapStyle: 0
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,DejaVu Sans,34,&H00F2F5EE,&H00FFFFFF,&H00060B09,&H00060B09,0,0,0,0,100,100,0,0,1,1,0,2,100,100,34,1
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.63,0:00:03.80,Default,,0,0,0,,Once the purchase is confirmed, receive private credits runs the issuance
+Dialogue: 0,0:00:03.81,0:00:07.87,Default,,0,0,0,,protocol. The browser blinds its requests, verifies the issuer's proof, and
+Dialogue: 0,0:00:07.88,0:00:12.00,Default,,0,0,0,,unblinds locally. The wallet now holds ten usable credits. BlindPass uses
+Dialogue: 0,0:00:12.01,0:00:16.23,Default,,0,0,0,,Cloudflare's Privacy Pass implementation rather than inventing a new cryptographic primitive.
+Dialogue: 0,0:00:16.44,0:00:19.08,Default,,0,0,0,,The issuer does not receive these final credits during issuance.
